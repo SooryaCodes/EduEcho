@@ -139,10 +139,10 @@ export default function NewThreadPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          subject: formData.title,
+          question: formData.title,
           description: formData.description,
           tags: formData.tags,
-          category: formData.category,
+          subject: formData.category,
           userId: JSON.parse(localStorage.getItem('user') || '{}')._id,
         }),
       });

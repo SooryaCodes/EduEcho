@@ -157,7 +157,27 @@ export default function ThreadsPage() {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/threads`);
       if (response.ok) {
         const data = await response.json();
-        setThreads(data.data || []);
+        // Map backend data to frontend format
+        const mappedThreads = (data.data || []).map((thread: any) => ({
+          id: thread._id,
+          title: thread.question,
+          content: thread.description || '',
+          author: {
+            name: thread.userId?.name || 'Anonymous',
+            avatar: thread.userId?.avatar || '',
+            reputation: 0, // Will be calculated later
+            level: 1 // Will be calculated later
+          },
+          votes: thread.upvotes || 0,
+          replies: thread.replyCount || 0,
+          views: thread.viewCount || 0,
+          tags: thread.tags || [],
+          createdAt: new Date(thread.createdAt).toLocaleDateString(),
+          isHot: thread.upvotes > 10,
+          isSolved: thread.isResolved,
+          category: thread.subject
+        }));
+        setThreads(mappedThreads);
       } else {
         console.error('Failed to load threads');
         // Fallback to mock data if API fails

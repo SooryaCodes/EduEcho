@@ -23,10 +23,22 @@ export default function NotebooksPage() {
     setLoading(true);
     try {
       const storedUser = localStorage.getItem("user");
-      if (!storedUser) return;
+      if (!storedUser) {
+        console.log("No user found in localStorage");
+        return;
+      }
       
       const user = JSON.parse(storedUser);
-      const response: any = await api.get(`/notebooks/user/${user._id}`);
+      console.log("User data:", user); // Debug log
+      
+      if (!user._id && !user.id) {
+        console.error("User ID not found in user data");
+        setNotebooks([]);
+        return;
+      }
+      
+      const userId = user._id || user.id;
+      const response: any = await api.get(`/notebooks/user/${userId}`);
       setNotebooks(response.data || []);
     } catch (error) {
       console.error("Failed to load notebooks:", error);

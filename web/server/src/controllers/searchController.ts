@@ -6,7 +6,8 @@ import Reply from '../models/Reply';
 import Notebook from '../models/Notebook';
 
 export const semanticSearch = asyncHandler(async (req: Request, res: Response) => {
-  const { q, type, subject, limit = 10 } = req.query;
+  // Support both GET (query) and POST (body) requests
+  const { q, type, subject, limit = 10 } = req.method === 'POST' ? req.body : req.query;
 
   if (!q || typeof q !== 'string') {
     return res.status(400).json({
@@ -59,7 +60,8 @@ export const semanticSearch = asyncHandler(async (req: Request, res: Response) =
 });
 
 export const searchAll = asyncHandler(async (req: Request, res: Response) => {
-  const { q } = req.query;
+  // Support both GET (query) and POST (body) requests
+  const { q } = req.method === 'POST' ? req.body : req.query;
 
   if (!q || typeof q !== 'string') {
     return res.status(400).json({

@@ -40,7 +40,7 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-background">
       {/* Top Navigation */}
-      <nav className="border-b sticky top-0 z-50 bg-white/80 dark:bg-black/80 backdrop-blur-xl">
+      <nav className="border-b sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-purple-200">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button
@@ -53,15 +53,15 @@ export default function DashboardLayout({
             </Button>
             
             <Link href="/dashboard" className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-2xl bg-purple-card flex items-center justify-center">
-                <span className="text-white font-bold text-lg font-cabinet">E</span>
+              <div className="w-10 h-10 rounded-2xl bg-purple-gradient flex items-center justify-center">
+                <span className="text-white font-bold text-lg">E</span>
               </div>
-              <span className="font-cabinet font-bold text-xl hidden sm:block">EduEcho</span>
+              <span className="font-bold text-xl hidden sm:block gradient-text">EduEcho</span>
             </Link>
           </div>
 
           <div className="flex items-center gap-3">
-            <Button asChild className="bg-purple-card hover:bg-[rgb(129,140,248)] rounded-2xl h-10 px-6 hidden sm:flex">
+            <Button asChild className="bg-purple-gradient hover:opacity-90 rounded-2xl h-10 px-6 hidden sm:flex text-white">
               <Link href="/dashboard/threads/new">
                 <Plus className="w-4 h-4 mr-2" />
                 New Thread
@@ -95,8 +95,8 @@ export default function DashboardLayout({
                     onClick={() => setSidebarOpen(false)}
                     className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-medium transition-colors ${
                       isActive
-                        ? "bg-light-purple text-[rgb(108,93,211)]"
-                        : "hover:bg-muted"
+                        ? "bg-purple-100 text-purple-700"
+                        : "hover:bg-purple-50 text-gray-700"
                     }`}
                   >
                     <item.icon className="w-5 h-5" />
@@ -133,7 +133,7 @@ export default function DashboardLayout({
       {/* Floating Action Button (Mobile) */}
       <Button
         asChild
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-purple-card hover:bg-[rgb(129,140,248)] shadow-lg lg:hidden"
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-purple-gradient hover:opacity-90 shadow-lg lg:hidden text-white"
       >
         <Link href="/dashboard/threads/new">
           <Plus className="w-6 h-6" />
