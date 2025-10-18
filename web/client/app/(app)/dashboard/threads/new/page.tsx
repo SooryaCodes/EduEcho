@@ -1,282 +1,425 @@
 'use client';
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import api from "@/lib/api";
-import { Loader2, Mic, MicOff, Plus, X, ArrowLeft } from "lucide-react";
-import Link from "next/link";
-
-const subjects = ["Computer Science", "Mathematics", "Physics", "Chemistry", "Biology", "Economics", "Literature", "History", "Other"];
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { 
+  MessageSquare, 
+  Tag, 
+  Mic, 
+  Upload, 
+  X,
+  Plus,
+  Brain,
+  Zap,
+  ArrowLeft
+} from 'lucide-react';
+import Link from 'next/link';
 
 export default function NewThreadPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [recording, setRecording] = useState(false);
   const [formData, setFormData] = useState({
-    question: "",
-    description: "",
-    subject: "",
+    title: '',
+    description: '',
     tags: [] as string[],
-    voiceUrl: "",
+    category: ''
   });
-  const [tagInput, setTagInput] = useState("");
+  const [newTag, setNewTag] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const categories = [
+    { name: 'AI/ML', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+    { name: 'Frontend', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+    { name: 'Backend', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+    { name: 'Database', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+    { name: 'DevOps', color: 'bg-orange-100 text-orange-700 border-orange-200' },
+    { name: 'Mobile', color: 'bg-pink-100 text-pink-700 border-pink-200' }
+  ];
+
+  const popularTags = [
+    'React', 'JavaScript', 'Python', 'Node.js', 'TypeScript', 
+    'CSS', 'HTML', 'SQL', 'MongoDB', 'AWS', 'Docker', 'Git'
+  ];
 
   const handleAddTag = () => {
-    if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
-      setFormData({
-        ...formData,
-        tags: [...formData.tags, tagInput.trim()],
-      });
-      setTagInput("");
+    if (newTag.trim() && !formData.tags.includes(newTag.trim()) && formData.tags.length < 5) {
+      setFormData(prev => ({
+        ...prev,
+        tags: [...prev.tags, newTag.trim()]
+      }));
+      setNewTag('');
     }
   };
 
-  const handleRemoveTag = (tag: string) => {
-    setFormData({
-      ...formData,
-      tags: formData.tags.filter((t) => t !== tag),
-    });
+  const handleRemoveTag = (tagToRemove: string) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: prev.tags.filter(tag => tag !== tagToRemove)
+    }));
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const audioChunks: BlobPart[] = [];
+
+      recorder.ondataavailable = (event) => {
+        audioChunks.push(event.data);
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+        await transcribeAudio(audioBlob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      alert('Could not access microphone. Please check permissions.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      setMediaRecorder(null);
+    }
+  };
+
+  const transcribeAudio = async (audioBlob: Blob) => {
+    try {
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'recording.wav');
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/ai/transcribe`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setFormData(prev => ({
+          ...prev,
+          description: prev.description + ' ' + data.text
+        }));
+      }
+    } catch (error) {
+      console.error('Error transcribing audio:', error);
+    }
+  };
+
+  const handleVoiceToggle = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!formData.question.trim()) {
-      toast.error("Please enter a question");
-      return;
-    }
-
-    if (!formData.subject) {
-      toast.error("Please select a subject");
-      return;
-    }
-
-    setLoading(true);
+    setIsSubmitting(true);
 
     try {
-      const storedUser = localStorage.getItem("user");
-      if (!storedUser) {
-        toast.error("Please log in again");
-        router.push("/auth/login");
-        return;
-      }
-
-      const user = JSON.parse(storedUser);
-
-      const response: any = await api.post("/threads", {
-        question: formData.question,
-        description: formData.description,
-        subject: formData.subject,
-        tags: formData.tags,
-        userId: user._id,
-        userName: user.name,
-        voiceUrl: formData.voiceUrl,
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/threads`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          subject: formData.title,
+          description: formData.description,
+          tags: formData.tags,
+          category: formData.category,
+          userId: JSON.parse(localStorage.getItem('user') || '{}')._id,
+        }),
       });
 
-      toast.success("Thread created successfully!");
-      router.push(`/dashboard/threads/${response.data._id}`);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to create thread");
+      if (response.ok) {
+        router.push('/dashboard/threads');
+      } else {
+        console.error('Failed to create thread');
+      }
+    } catch (error) {
+      console.error('Error creating thread:', error);
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const toggleRecording = () => {
-    if (recording) {
-      // Stop recording
-      setRecording(false);
-      toast.success("Recording stopped");
-      // In production, this would process the audio
-    } else {
-      // Start recording
-      setRecording(true);
-      toast.success("Recording started");
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild className="rounded-2xl">
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center space-x-4">
           <Link href="/dashboard/threads">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-        </Button>
-        <div>
-          <h1 className="text-4xl font-cabinet font-bold">Ask a Question</h1>
-          <p className="text-lg text-muted-foreground mt-1">
-            Get help from the community
-          </p>
-        </div>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Voice Recording Card */}
-        <Card className="p-8 rounded-3xl border-0 bg-light-purple">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="font-cabinet font-bold text-xl mb-2">Voice Question (Optional)</h3>
-              <p className="text-muted-foreground">
-                Record your question with voice for better engagement
-              </p>
-            </div>
-            <Button
-              type="button"
-              onClick={toggleRecording}
-              className={`w-16 h-16 rounded-full ${
-                recording 
-                  ? "bg-red-600 hover:bg-red-700 animate-pulse" 
-                  : "bg-purple-card hover:bg-[rgb(129,140,248)]"
-              }`}
-            >
-              {recording ? <MicOff className="w-7 h-7" /> : <Mic className="w-7 h-7" />}
+            <Button variant="ghost" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Threads
             </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Ask a <span className="gradient-text">Question</span>
+            </h1>
+            <p className="text-gray-600 mt-1">Share your question with the community and get expert answers</p>
           </div>
-          {recording && (
-            <div className="flex items-center gap-3">
-              <div className="flex-1 bg-white/50 rounded-full h-2 overflow-hidden">
-                <div className="h-full bg-[rgb(108,93,211)] w-1/3 animate-pulse" />
-              </div>
-              <span className="text-sm font-medium">0:15</span>
-            </div>
-          )}
-        </Card>
+        </div>
 
-        {/* Main Form */}
-        <Card className="p-8 rounded-3xl border-0">
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="question" className="text-lg font-cabinet font-bold">
-                Question Title *
-              </Label>
-              <Input
-                id="question"
-                placeholder="What's your question?"
-                value={formData.question}
-                onChange={(e) => setFormData({ ...formData, question: e.target.value })}
-                required
-                disabled={loading}
-                className="h-14 rounded-2xl border-2 text-lg focus-visible:ring-[rgb(108,93,211)]"
-              />
-            </div>
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Main Form */}
+          <div className="lg:col-span-2 space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Title */}
+              <Card className="p-6">
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <MessageSquare className="w-5 h-5 text-purple-600" />
+                    <Label htmlFor="title" className="text-lg font-semibold">Question Title</Label>
+                  </div>
+                  <Input
+                    id="title"
+                    placeholder="What's your programming question? Be specific and clear..."
+                    value={formData.title}
+                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                    className="text-lg"
+                    required
+                  />
+                  <p className="text-sm text-gray-500">
+                    Make your title descriptive and specific to get better answers
+                  </p>
+                </div>
+              </Card>
 
-            <div className="space-y-2">
-              <Label htmlFor="description" className="text-lg font-cabinet font-bold">
-                Description (Optional)
-              </Label>
-              <Textarea
-                id="description"
-                placeholder="Provide more details about your question..."
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                disabled={loading}
-                className="min-h-32 rounded-2xl border-2 resize-none focus-visible:ring-[rgb(108,93,211)]"
-              />
-            </div>
+              {/* Description */}
+              <Card className="p-6">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Brain className="w-5 h-5 text-purple-600" />
+                      <Label htmlFor="description" className="text-lg font-semibold">Detailed Description</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className={`${isRecording ? 'bg-red-100 text-red-700 border-red-200' : ''}`}
+                        onClick={handleVoiceToggle}
+                      >
+                        <Mic className="w-4 h-4 mr-2" />
+                        {isRecording ? 'Stop Recording' : 'Voice Input'}
+                      </Button>
+                      <Button type="button" variant="outline" size="sm">
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload Image
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <Textarea
+                    id="description"
+                    placeholder="Provide more details about your question. Include what you've tried, error messages, code snippets, etc..."
+                    value={formData.description}
+                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    rows={8}
+                    className="resize-none"
+                  />
+                  
+                  {isRecording && (
+                    <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                      <span className="text-red-700 text-sm font-medium">Recording... Speak your question</span>
+                    </div>
+                  )}
+                </div>
+              </Card>
 
-            <div className="space-y-2">
-              <Label htmlFor="subject" className="text-lg font-cabinet font-bold">
-                Subject *
-              </Label>
-              <Select
-                value={formData.subject}
-                onValueChange={(value) => setFormData({ ...formData, subject: value })}
-                disabled={loading}
-              >
-                <SelectTrigger className="h-12 rounded-2xl border-2 focus:ring-[rgb(108,93,211)]">
-                  <SelectValue placeholder="Select a subject" />
-                </SelectTrigger>
-                <SelectContent>
-                  {subjects.map((subject) => (
-                    <SelectItem key={subject} value={subject}>
-                      {subject}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              {/* Category */}
+              <Card className="p-6">
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Tag className="w-5 h-5 text-purple-600" />
+                    <Label className="text-lg font-semibold">Category</Label>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {categories.map((category) => (
+                      <Button
+                        key={category.name}
+                        type="button"
+                        variant={formData.category === category.name ? "default" : "outline"}
+                        className={`${formData.category === category.name 
+                          ? 'bg-purple-gradient text-white' 
+                          : `${category.color} hover:opacity-80`
+                        }`}
+                        onClick={() => setFormData(prev => ({ ...prev, category: category.name }))}
+                      >
+                        {category.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </Card>
 
-            <div className="space-y-3">
-              <Label className="text-lg font-cabinet font-bold">Tags</Label>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Add a tag..."
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), handleAddTag())}
-                  disabled={loading}
-                  className="h-12 rounded-2xl border-2 focus-visible:ring-[rgb(108,93,211)]"
-                />
-                <Button
-                  type="button"
-                  onClick={handleAddTag}
-                  disabled={loading || !tagInput.trim()}
-                  className="h-12 px-6 rounded-2xl bg-purple-card hover:bg-[rgb(129,140,248)]"
+              {/* Tags */}
+              <Card className="p-6">
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Zap className="w-5 h-5 text-purple-600" />
+                    <Label className="text-lg font-semibold">Tags</Label>
+                    <Badge variant="outline" className="text-xs">
+                      {formData.tags.length}/5
+                    </Badge>
+                  </div>
+                  
+                  {/* Current Tags */}
+                  {formData.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {formData.tags.map((tag) => (
+                        <Badge key={tag} className="bg-purple-100 text-purple-700 pr-1">
+                          {tag}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="ml-1 h-4 w-4 p-0 hover:bg-purple-200"
+                            onClick={() => handleRemoveTag(tag)}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Add New Tag */}
+                  <div className="flex space-x-2">
+                    <Input
+                      placeholder="Add a tag..."
+                      value={newTag}
+                      onChange={(e) => setNewTag(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
+                      disabled={formData.tags.length >= 5}
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleAddTag}
+                      disabled={!newTag.trim() || formData.tags.length >= 5}
+                      size="sm"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  
+                  {/* Popular Tags */}
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-gray-700">Popular tags:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {popularTags.map((tag) => (
+                        <Button
+                          key={tag}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="text-xs hover:bg-purple-50 hover:border-purple-200"
+                          onClick={() => {
+                            if (!formData.tags.includes(tag) && formData.tags.length < 5) {
+                              setFormData(prev => ({
+                                ...prev,
+                                tags: [...prev.tags, tag]
+                              }));
+                            }
+                          }}
+                          disabled={formData.tags.includes(tag) || formData.tags.length >= 5}
+                        >
+                          {tag}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Submit */}
+              <div className="flex justify-end space-x-4">
+                <Link href="/dashboard/threads">
+                  <Button type="button" variant="outline">
+                    Cancel
+                  </Button>
+                </Link>
+                <Button 
+                  type="submit" 
+                  className="bg-purple-gradient text-white hover:opacity-90"
+                  disabled={!formData.title.trim() || !formData.category || isSubmitting}
                 >
-                  <Plus className="w-5 h-5" />
+                  {isSubmitting ? 'Posting...' : 'Post Question'}
                 </Button>
               </div>
-              {formData.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {formData.tags.map((tag) => (
-                    <Badge
-                      key={tag}
-                      className="pl-3 pr-2 py-2 rounded-full bg-light-purple text-[rgb(108,93,211)] border-0 text-sm"
-                    >
-                      {tag}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveTag(tag)}
-                        className="ml-2 hover:bg-white/50 rounded-full p-0.5"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </div>
+            </form>
           </div>
-        </Card>
 
-        {/* Submit */}
-        <div className="flex gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.back()}
-            className="flex-1 h-14 rounded-2xl font-semibold text-base"
-            disabled={loading}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            className="flex-1 h-14 rounded-2xl bg-purple-card hover:bg-[rgb(129,140,248)] font-semibold text-base"
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-5 h-5 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              "Post Question"
-            )}
-          </Button>
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Tips */}
+            <Card className="bento-card-yellow p-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-4">💡 Tips for Great Questions</h3>
+              <ul className="space-y-2 text-sm text-gray-700">
+                <li>• Be specific and clear in your title</li>
+                <li>• Include relevant code snippets</li>
+                <li>• Mention what you've already tried</li>
+                <li>• Add appropriate tags</li>
+                <li>• Use proper formatting</li>
+              </ul>
+            </Card>
+
+            {/* AI Help */}
+            <Card className="bento-card-purple p-6">
+              <div className="flex items-center space-x-2 mb-4">
+                <Brain className="w-6 h-6 text-white" />
+                <h3 className="text-lg font-bold text-white">AI Assistant</h3>
+              </div>
+              <p className="text-white/90 text-sm mb-4">
+                Get instant suggestions and improvements for your question before posting.
+              </p>
+              <Button className="w-full bg-white/20 hover:bg-white/30 text-white">
+                Analyze Question
+              </Button>
+            </Card>
+
+            {/* Community Stats */}
+            <Card className="bento-card-purple-secondary p-6">
+              <h3 className="text-lg font-bold text-white mb-4">Community Stats</h3>
+              <div className="space-y-3 text-white">
+                <div className="flex justify-between">
+                  <span className="text-white/80">Questions Today</span>
+                  <span className="font-bold">127</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/80">Avg Response Time</span>
+                  <span className="font-bold">12 min</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/80">Active Experts</span>
+                  <span className="font-bold">45</span>
+                </div>
+              </div>
+            </Card>
+          </div>
         </div>
-      </form>
+      </div>
     </div>
   );
 }
-

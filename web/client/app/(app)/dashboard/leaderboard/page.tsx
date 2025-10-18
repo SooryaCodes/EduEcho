@@ -1,244 +1,416 @@
 'use client';
 
-import { useEffect, useState } from "react";
-import { Card } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import api from "@/lib/api";
-import { Trophy, TrendingUp, Star, Award, Medal, Crown } from "lucide-react";
-import { motion } from "framer-motion";
+import { useState, useEffect } from 'react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
+import { 
+  Trophy, 
+  Star, 
+  TrendingUp, 
+  Users, 
+  Crown,
+  Medal,
+  Award,
+  Zap,
+  Calendar,
+  Target
+} from 'lucide-react';
 
 export default function LeaderboardPage() {
-  const [leaderboard, setLeaderboard] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [timeframe, setTimeframe] = useState("all");
+  const [activeTab, setActiveTab] = useState('overall');
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
-    loadLeaderboard();
-  }, [timeframe]);
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      setCurrentUser(JSON.parse(userData));
+    }
+  }, []);
 
-  const loadLeaderboard = async () => {
-    setLoading(true);
-    try {
-      const response: any = await api.get(`/leaderboard?timeframe=${timeframe}`);
-      setLeaderboard(response.data || mockLeaderboard);
-    } catch (error) {
-      console.error("Failed to load leaderboard:", error);
-      setLeaderboard(mockLeaderboard);
-    } finally {
-      setLoading(false);
+  const topLearners = [
+    {
+      id: 1,
+      name: "Sarah Chen",
+      avatar: "",
+      score: 4250,
+      level: 8,
+      rank: 1,
+      badge: "AI Expert",
+      streak: 45,
+      threadsCreated: 89,
+      repliesPosted: 234,
+      helpfulAnswers: 156,
+      change: "+2"
+    },
+    {
+      id: 2,
+      name: "Alex Kumar",
+      avatar: "",
+      score: 3890,
+      level: 7,
+      rank: 2,
+      badge: "Database Guru",
+      streak: 32,
+      threadsCreated: 67,
+      repliesPosted: 189,
+      helpfulAnswers: 134,
+      change: "0"
+    },
+    {
+      id: 3,
+      name: "Emma Wilson",
+      avatar: "",
+      score: 3650,
+      level: 7,
+      rank: 3,
+      badge: "Frontend Master",
+      streak: 28,
+      threadsCreated: 78,
+      repliesPosted: 201,
+      helpfulAnswers: 145,
+      change: "+1"
+    },
+    {
+      id: 4,
+      name: "Mike Johnson",
+      avatar: "",
+      score: 3420,
+      level: 6,
+      rank: 4,
+      badge: "React Specialist",
+      streak: 21,
+      threadsCreated: 56,
+      repliesPosted: 167,
+      helpfulAnswers: 98,
+      change: "-1"
+    },
+    {
+      id: 5,
+      name: "Lisa Zhang",
+      avatar: "",
+      score: 3180,
+      level: 6,
+      rank: 5,
+      badge: "Python Expert",
+      streak: 19,
+      threadsCreated: 45,
+      repliesPosted: 145,
+      helpfulAnswers: 87,
+      change: "+3"
+    }
+  ];
+
+  const weeklyTop = [
+    { name: "David Park", score: 450, change: "+12" },
+    { name: "Anna Smith", score: 380, change: "+8" },
+    { name: "John Doe", score: 320, change: "+15" }
+  ];
+
+  const categories = [
+    { name: "AI/ML", leader: "Sarah Chen", score: 1250 },
+    { name: "Frontend", leader: "Emma Wilson", score: 980 },
+    { name: "Backend", leader: "Alex Kumar", score: 1150 },
+    { name: "Mobile", leader: "Mike Johnson", score: 750 }
+  ];
+
+  const getRankIcon = (rank: number) => {
+    switch (rank) {
+      case 1:
+        return <Crown className="w-6 h-6 text-yellow-500" />;
+      case 2:
+        return <Medal className="w-6 h-6 text-gray-400" />;
+      case 3:
+        return <Award className="w-6 h-6 text-amber-600" />;
+      default:
+        return <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold text-sm">{rank}</div>;
     }
   };
 
-  const getRankIcon = (rank: number) => {
-    if (rank === 1) return <Crown className="w-6 h-6 text-yellow-500" />;
-    if (rank === 2) return <Medal className="w-6 h-6 text-gray-400" />;
-    if (rank === 3) return <Medal className="w-6 h-6 text-amber-600" />;
-    return null;
-  };
-
-  const getRankBadge = (rank: number) => {
-    if (rank === 1) return "bg-gradient-to-r from-yellow-400 to-yellow-600 text-white";
-    if (rank === 2) return "bg-gradient-to-r from-gray-300 to-gray-500 text-white";
-    if (rank === 3) return "bg-gradient-to-r from-amber-400 to-amber-600 text-white";
-    return "bg-muted text-foreground";
+  const getRankColor = (rank: number) => {
+    switch (rank) {
+      case 1:
+        return 'bg-gradient-to-r from-yellow-400 to-yellow-600';
+      case 2:
+        return 'bg-gradient-to-r from-gray-300 to-gray-500';
+      case 3:
+        return 'bg-gradient-to-r from-amber-400 to-amber-600';
+      default:
+        return 'bg-purple-gradient';
+    }
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="text-center space-y-3">
-        <div className="w-20 h-20 rounded-3xl bg-purple-card mx-auto flex items-center justify-center mb-4">
-          <Trophy className="w-10 h-10 text-white" />
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="text-center space-y-2">
+          <h1 className="text-3xl font-bold text-gray-900">
+            <span className="gradient-text">Community</span> Leaderboard 🏆
+          </h1>
+          <p className="text-gray-600">Celebrate our top contributors and learning champions</p>
         </div>
-        <h1 className="text-5xl font-cabinet font-bold">Leaderboard</h1>
-        <p className="text-lg text-muted-foreground">
-          Top contributors in the community
-        </p>
-      </div>
 
-      {/* Tabs */}
-      <Tabs value={timeframe} onValueChange={setTimeframe} className="w-full">
-        <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 h-12 rounded-2xl">
-          <TabsTrigger value="week" className="rounded-xl">This Week</TabsTrigger>
-          <TabsTrigger value="month" className="rounded-xl">This Month</TabsTrigger>
-          <TabsTrigger value="all" className="rounded-xl">All Time</TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      {/* Top 3 */}
-      {!loading && leaderboard.length >= 3 && (
-        <div className="grid md:grid-cols-3 gap-6">
-          {/* Rank 2 */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-            className="md:order-1"
-          >
-            <Card className="p-6 rounded-3xl border-0 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 text-center md:mt-12">
-              <div className="relative inline-block mb-4">
-                <Avatar className="w-20 h-20 border-4 border-white">
-                  <AvatarFallback className="bg-gray-400 text-white text-2xl font-cabinet font-bold">
-                    {leaderboard[1]?.name?.[0]?.toUpperCase()}
+        {/* Current User Stats */}
+        {currentUser && (
+          <Card className="bento-card-purple p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <Avatar className="w-16 h-16 border-2 border-white/20">
+                  <AvatarFallback className="bg-white/20 text-white text-xl font-bold">
+                    {currentUser.name?.charAt(0)?.toUpperCase() || 'U'}
                   </AvatarFallback>
                 </Avatar>
-                <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-gray-400 flex items-center justify-center text-white font-bold text-sm">
-                  2
-                </div>
-              </div>
-              <h3 className="font-cabinet font-bold text-xl mb-1">{leaderboard[1]?.name}</h3>
-              <div className="flex items-center justify-center gap-2 mb-3">
-                <Star className="w-4 h-4 text-yellow-500" />
-                <span className="font-bold text-2xl">{leaderboard[1]?.points}</span>
-              </div>
-              <Badge variant="secondary" className="rounded-full">
-                {leaderboard[1]?.repliesCount || 0} replies
-              </Badge>
-            </Card>
-          </motion.div>
-
-          {/* Rank 1 */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="md:order-2"
-          >
-            <Card className="p-8 rounded-3xl border-0 bg-gradient-to-br from-yellow-400 to-yellow-600 text-white text-center relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12" />
-              <div className="relative z-10">
-                <div className="relative inline-block mb-6">
-                  <Avatar className="w-24 h-24 border-4 border-white">
-                    <AvatarFallback className="bg-yellow-500 text-white text-3xl font-cabinet font-bold">
-                      {leaderboard[0]?.name?.[0]?.toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="absolute -top-3 -right-3 w-10 h-10 rounded-full bg-white flex items-center justify-center">
-                    <Crown className="w-6 h-6 text-yellow-500" />
-                  </div>
-                </div>
-                <h3 className="font-cabinet font-bold text-2xl mb-2">{leaderboard[0]?.name}</h3>
-                <div className="flex items-center justify-center gap-2 mb-4">
-                  <Star className="w-5 h-5" />
-                  <span className="font-bold text-3xl">{leaderboard[0]?.points}</span>
-                </div>
-                <Badge className="bg-white/20 hover:bg-white/30 border-0 rounded-full">
-                  {leaderboard[0]?.repliesCount || 0} replies
-                </Badge>
-              </div>
-            </Card>
-          </motion.div>
-
-          {/* Rank 3 */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
-            className="md:order-3"
-          >
-            <Card className="p-6 rounded-3xl border-0 bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-900 dark:to-amber-950 text-center md:mt-12">
-              <div className="relative inline-block mb-4">
-                <Avatar className="w-20 h-20 border-4 border-white">
-                  <AvatarFallback className="bg-amber-600 text-white text-2xl font-cabinet font-bold">
-                    {leaderboard[2]?.name?.[0]?.toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-amber-600 flex items-center justify-center text-white font-bold text-sm">
-                  3
-                </div>
-              </div>
-              <h3 className="font-cabinet font-bold text-xl mb-1">{leaderboard[2]?.name}</h3>
-              <div className="flex items-center justify-center gap-2 mb-3">
-                <Star className="w-4 h-4 text-yellow-500" />
-                <span className="font-bold text-2xl">{leaderboard[2]?.points}</span>
-              </div>
-              <Badge variant="secondary" className="rounded-full">
-                {leaderboard[2]?.repliesCount || 0} replies
-              </Badge>
-            </Card>
-          </motion.div>
-        </div>
-      )}
-
-      {/* Rest of Leaderboard */}
-      <Card className="rounded-3xl border-0 overflow-hidden">
-        <div className="divide-y">
-          {loading ? (
-            Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} className="p-6 animate-pulse">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-muted rounded-full" />
-                  <div className="flex-1">
-                    <div className="h-5 bg-muted rounded w-1/3 mb-2" />
-                    <div className="h-4 bg-muted rounded w-1/4" />
+                <div className="text-white">
+                  <h3 className="text-xl font-bold">{currentUser.name}</h3>
+                  <p className="text-white/80">Your Current Ranking</p>
+                  <div className="flex items-center space-x-4 mt-2">
+                    <Badge className="bg-white/20 text-white">
+                      Rank #23
+                    </Badge>
+                    <Badge className="bg-white/20 text-white">
+                      1,250 points
+                    </Badge>
+                    <Badge className="bg-white/20 text-white">
+                      Level 3
+                    </Badge>
                   </div>
                 </div>
               </div>
-            ))
-          ) : leaderboard.slice(3).length > 0 ? (
-            leaderboard.slice(3).map((user, index) => {
-              const rank = index + 4;
-              return (
-                <motion.div
-                  key={user._id || index}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.03 }}
-                  className="p-6 hover:bg-muted/30 transition-colors"
-                >
-                  <div className="flex items-center gap-6">
-                    <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center font-cabinet font-bold text-xl">
-                      {rank}
+              <div className="text-right text-white">
+                <div className="text-2xl font-bold">1,250</div>
+                <div className="text-white/80">Total Points</div>
+                <div className="text-purple-300 text-sm mt-1">+45 this week</div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="overall" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-700">
+              Overall
+            </TabsTrigger>
+            <TabsTrigger value="weekly" className="data-[state=active]:bg-yellow-100 data-[state=active]:text-yellow-700">
+              This Week
+            </TabsTrigger>
+            <TabsTrigger value="monthly" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-700">
+              This Month
+            </TabsTrigger>
+            <TabsTrigger value="categories" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700">
+              Categories
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Overall Leaderboard */}
+          <TabsContent value="overall" className="space-y-4">
+            <div className="grid lg:grid-cols-3 gap-6">
+              {/* Top 3 Podium */}
+              <div className="lg:col-span-2">
+                <Card className="p-6">
+                  <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
+                    <Trophy className="w-6 h-6 mr-2 text-yellow-500" />
+                    Top Contributors
+                  </h2>
+                  
+                  {/* Podium */}
+                  <div className="flex items-end justify-center space-x-4 mb-8">
+                    {/* 2nd Place */}
+                    <div className="text-center">
+                      <div className="w-20 h-16 bg-gradient-to-t from-gray-300 to-gray-500 rounded-t-lg flex items-center justify-center mb-2">
+                        <span className="text-white font-bold text-lg">2</span>
+                      </div>
+                      <Avatar className="w-12 h-12 mx-auto mb-2 border-2 border-gray-400">
+                        <AvatarFallback className="bg-gray-100 text-gray-700">
+                          {topLearners[1].name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <p className="font-medium text-sm">{topLearners[1].name}</p>
+                      <p className="text-gray-500 text-xs">{topLearners[1].score} pts</p>
                     </div>
 
-                    <Avatar className="w-14 h-14">
-                      <AvatarFallback className="bg-purple-card text-white text-lg font-cabinet font-bold">
-                        {user.name?.[0]?.toUpperCase()}
+                    {/* 1st Place */}
+                    <div className="text-center">
+                      <div className="w-24 h-20 bg-gradient-to-t from-yellow-400 to-yellow-600 rounded-t-lg flex items-center justify-center mb-2">
+                        <Crown className="w-8 h-8 text-white" />
+                      </div>
+                      <Avatar className="w-16 h-16 mx-auto mb-2 border-2 border-yellow-400">
+                        <AvatarFallback className="bg-yellow-100 text-yellow-700">
+                          {topLearners[0].name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <p className="font-bold">{topLearners[0].name}</p>
+                      <p className="text-yellow-600 font-medium">{topLearners[0].score} pts</p>
+                      <Badge className="bg-yellow-100 text-yellow-700 text-xs mt-1">
+                        {topLearners[0].badge}
+                      </Badge>
+                    </div>
+
+                    {/* 3rd Place */}
+                    <div className="text-center">
+                      <div className="w-20 h-12 bg-gradient-to-t from-amber-400 to-amber-600 rounded-t-lg flex items-center justify-center mb-2">
+                        <span className="text-white font-bold text-lg">3</span>
+                      </div>
+                      <Avatar className="w-12 h-12 mx-auto mb-2 border-2 border-amber-400">
+                        <AvatarFallback className="bg-amber-100 text-amber-700">
+                          {topLearners[2].name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <p className="font-medium text-sm">{topLearners[2].name}</p>
+                      <p className="text-gray-500 text-xs">{topLearners[2].score} pts</p>
+                    </div>
+                  </div>
+
+                  {/* Full Rankings */}
+                  <div className="space-y-3">
+                    {topLearners.map((learner) => (
+                      <div key={learner.id} className="flex items-center justify-between p-4 rounded-lg border border-gray-200 hover:border-purple-200 hover:bg-purple-50/50 transition-colors">
+                        <div className="flex items-center space-x-4">
+                          {getRankIcon(learner.rank)}
+                          <Avatar className="w-12 h-12">
+                            <AvatarFallback className="bg-purple-100 text-purple-700">
+                              {learner.name.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="flex items-center space-x-2">
+                              <h3 className="font-semibold text-gray-900">{learner.name}</h3>
+                              <Badge className="bg-purple-100 text-purple-700 text-xs">
+                                {learner.badge}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center space-x-4 text-sm text-gray-500">
+                              <span>Level {learner.level}</span>
+                              <span>•</span>
+                              <span>{learner.streak} day streak</span>
+                              <span>•</span>
+                              <span>{learner.helpfulAnswers} helpful answers</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="text-right">
+                          <div className="font-bold text-lg text-gray-900">{learner.score}</div>
+                          <div className="text-gray-500 text-sm">points</div>
+                          <div className={`text-xs ${learner.change.startsWith('+') ? 'text-purple-600' : learner.change === '0' ? 'text-gray-500' : 'text-red-600'}`}>
+                            {learner.change !== '0' && learner.change}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+
+              {/* Sidebar Stats */}
+              <div className="space-y-6">
+                {/* Weekly Leaders */}
+                <Card className="bento-card-yellow p-6">
+                  <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                    <TrendingUp className="w-5 h-5 mr-2" />
+                    Weekly Rising Stars
+                  </h3>
+                  <div className="space-y-3">
+                    {weeklyTop.map((user, index) => (
+                      <div key={index} className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-6 h-6 rounded-full bg-gray-800 text-yellow-400 flex items-center justify-center text-xs font-bold">
+                            {index + 1}
+                          </div>
+                          <span className="font-medium text-gray-800">{user.name}</span>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold text-gray-800">{user.score}</div>
+                          <div className="text-purple-600 text-xs">{user.change}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+
+                {/* Achievement Stats */}
+                <Card className="bento-card-purple-secondary p-6">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center">
+                    <Star className="w-5 h-5 mr-2" />
+                    Community Stats
+                  </h3>
+                  <div className="space-y-3 text-white">
+                    <div className="flex justify-between">
+                      <span className="text-white/80">Total Members</span>
+                      <span className="font-bold">12,450</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-white/80">Active This Week</span>
+                      <span className="font-bold">3,240</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-white/80">Questions Answered</span>
+                      <span className="font-bold">45,670</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-white/80">Avg Response Time</span>
+                      <span className="font-bold">12 min</span>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Your Progress */}
+                <Card className="bento-card-black p-6">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center">
+                    <Target className="w-5 h-5 mr-2" />
+                    Your Progress
+                  </h3>
+                  <div className="space-y-4 text-white">
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Next Level</span>
+                        <span>750/1000 XP</span>
+                      </div>
+                      <Progress value={75} className="bg-white/20" />
+                    </div>
+                    <div className="text-sm text-white/80">
+                      <p>• Answer 5 more questions to reach Level 4</p>
+                      <p>• Maintain your 12-day streak</p>
+                      <p>• Get 3 more helpful votes</p>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Category Leaders */}
+          <TabsContent value="categories" className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-6">
+              {categories.map((category, index) => (
+                <Card key={category.name} className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800">{category.name}</h3>
+                    <Badge className="bg-purple-100 text-purple-700">
+                      Category Leader
+                    </Badge>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    <Avatar className="w-12 h-12">
+                      <AvatarFallback className="bg-purple-100 text-purple-700">
+                        {category.leader.charAt(0)}
                       </AvatarFallback>
                     </Avatar>
-
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-lg mb-1">{user.name}</h4>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span>{user.repliesCount || 0} replies</span>
-                        <span>{user.threadsCount || 0} threads</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Star className="w-5 h-5 text-yellow-500" />
-                      <span className="font-cabinet font-bold text-2xl">{user.points}</span>
+                    <div>
+                      <p className="font-semibold text-gray-900">{category.leader}</p>
+                      <p className="text-gray-500">{category.score} points in {category.name}</p>
                     </div>
                   </div>
-                </motion.div>
-              );
-            })
-          ) : (
-            <div className="p-16 text-center">
-              <Trophy className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No more users to display</p>
+                </Card>
+              ))}
             </div>
-          )}
-        </div>
-      </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }
-
-// Mock data for development
-const mockLeaderboard = [
-  { _id: "1", name: "Alex Johnson", points: 1250, repliesCount: 85, threadsCount: 23 },
-  { _id: "2", name: "Sarah Chen", points: 1100, repliesCount: 72, threadsCount: 19 },
-  { _id: "3", name: "Mike Davis", points: 950, repliesCount: 61, threadsCount: 15 },
-  { _id: "4", name: "Emma Wilson", points: 820, repliesCount: 54, threadsCount: 12 },
-  { _id: "5", name: "James Brown", points: 780, repliesCount: 49, threadsCount: 11 },
-  { _id: "6", name: "Sophia Martinez", points: 720, repliesCount: 45, threadsCount: 10 },
-  { _id: "7", name: "Oliver Taylor", points: 680, repliesCount: 42, threadsCount: 9 },
-  { _id: "8", name: "Ava Anderson", points: 640, repliesCount: 38, threadsCount: 8 },
-  { _id: "9", name: "Liam Thomas", points: 590, repliesCount: 35, threadsCount: 7 },
-  { _id: "10", name: "Mia Garcia", points: 550, repliesCount: 32, threadsCount: 6 },
-];
-

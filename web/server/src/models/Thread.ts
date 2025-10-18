@@ -40,17 +40,15 @@ const ThreadSchema: Schema = new Schema(
         message: 'Maximum 5 tags allowed',
       },
     },
-    subject: {
+    subject: {  
       type: String,
       required: [true, 'Subject is required'],
       trim: true,
-      index: true,
     },
     userId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: true,
-      index: true,
     },
     language: {
       type: String,
@@ -87,14 +85,17 @@ const ThreadSchema: Schema = new Schema(
 );
 
 // Indexes for better query performance
-ThreadSchema.index({ subject: 1, createdAt: -1 });
+ThreadSchema.index({ userId: 1 });
 ThreadSchema.index({ tags: 1 });
 ThreadSchema.index({ isPinned: -1, createdAt: -1 });
 ThreadSchema.index({ upvotes: -1 });
 ThreadSchema.index({ viewCount: -1 });
 
-// Text index for search
+// Text index for search (this auto-creates indexes on indexed fields)
 ThreadSchema.index({ question: 'text', description: 'text', tags: 'text' });
+
+// Compound index with subject (must be after text index to avoid conflicts)
+ThreadSchema.index({ subject: 1, createdAt: -1 });
 
 export default mongoose.model<IThread>('Thread', ThreadSchema);
 

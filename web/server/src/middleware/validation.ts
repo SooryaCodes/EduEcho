@@ -31,10 +31,12 @@ export const userSchema = Joi.object({
 
 export const threadSchema = Joi.object({
   question: Joi.string().min(10).max(500).required(),
-  description: Joi.string().max(2000).optional(),
-  tags: Joi.array().items(Joi.string()).max(5).optional(),
+  description: Joi.string().max(2000).allow('').optional(),
+  tags: Joi.array().items(Joi.string()).max(5).optional().default([]),
   subject: Joi.string().required(),
   userId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).required(),
+  userName: Joi.string().optional(),
+  voiceUrl: Joi.string().uri().allow('').optional(),
   language: Joi.string().length(2).lowercase().optional(),
 });
 

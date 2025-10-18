@@ -1,187 +1,198 @@
-@import url('https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@100,200,300,400,500,700,800,900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@100,200,300,400,500,700,800,900,1&display=swap');
 @import "tailwindcss";
 
-@theme {
-  --font-family-cabinet: 'Cabinet Grotesk', sans-serif;
-  --font-family-manrope: 'Manrope', sans-serif;
+:root {
+  /* Vibrant Color Palette - Updated */
+  --purple-primary: #8B5CF6;
+  --purple-gradient-start: #A855F7;
+  --purple-gradient-end: #7C3AED;
+  --purple-dark: #6D28D9;
+  --purple-light: #C4B5FD;
+  --purple-card: linear-gradient(135deg, #A855F7 0%, #7C3AED 100%);
   
-  /* Light theme colors */
-  --color-background: 255 255 255;
-  --color-foreground: 0 0 0;
+  /* Updated Yellow - User's preferred shade */
+  --yellow-primary: #FDE047;
+  --yellow-bright: #FACC15;
+  --yellow-dark: #EAB308;
+  --yellow-card: #FDE047;
   
-  --color-card: 24 24 27;
-  --color-card-foreground: 255 255 255;
+  /* Replace Lime with Purple Variants */
+  --purple-secondary: #9333EA;
+  --purple-accent: #A855F7;
+  --purple-soft: #DDD6FE;
   
-  --color-popover: 255 255 255;
-  --color-popover-foreground: 0 0 0;
+  --black-card: #1F2937;
+  --black-dark: #111827;
+  --gray-light: #F8FAFC;
+  --gray-medium: #64748B;
+  --white: #FFFFFF;
   
-  /* Purple primary - #6C5DD3 */
-  --color-primary: 108 93 211;
-  --color-primary-foreground: 255 255 255;
-  
-  /* LIME/Fluorescent Yellow - #D4FF00 */
-  --color-secondary: 212 255 0;
-  --color-secondary-foreground: 0 0 0;
-  
-  --color-muted: 244 244 245;
-  --color-muted-foreground: 113 113 122;
-  
-  --color-accent: 212 255 0;
-  --color-accent-foreground: 0 0 0;
-  
-  --color-destructive: 239 68 68;
-  --color-destructive-foreground: 255 255 255;
-  
-  --color-border: 228 228 231;
-  --color-input: 244 244 245;
-  --color-ring: 108 93 211;
-  
-  --radius: 9999px;
+  /* Shadcn Variables */
+  --radius: 0.75rem;
+  --background: #FFFFFF;
+  --foreground: #1E293B;
+  --card: #FFFFFF;
+  --card-foreground: #1E293B;
+  --popover: #FFFFFF;
+  --popover-foreground: #1E293B;
+  --primary: var(--purple-primary);
+  --primary-foreground: #FFFFFF;
+  --secondary: var(--gray-light);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--gray-light);
+  --muted-foreground: var(--gray-medium);
+  --accent: var(--purple-light);
+  --accent-foreground: var(--purple-dark);
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --border: #E2E8F0;
+  --input: #E2E8F0;
+  --ring: var(--purple-primary);
+
+  /* Custom fonts */
+  --font-sans: 'Cabinet Grotesk', system-ui, sans-serif;
+  --font-secondary: 'Manrope', system-ui, sans-serif;
 }
 
 .dark {
-  --color-background: 0 0 0;
-  --color-foreground: 255 255 255;
-  
-  --color-card: 24 24 27;
-  --color-card-foreground: 255 255 255;
-  
-  --color-popover: 24 24 27;
-  --color-popover-foreground: 255 255 255;
-  
-  --color-primary: 129 140 248;
-  --color-primary-foreground: 255 255 255;
-  
-  --color-secondary: 212 255 0;
-  --color-secondary-foreground: 0 0 0;
-  
-  --color-muted: 39 39 42;
-  --color-muted-foreground: 161 161 170;
-  
-  --color-accent: 212 255 0;
-  --color-accent-foreground: 0 0 0;
-  
-  --color-destructive: 239 68 68;
-  --color-destructive-foreground: 255 255 255;
-  
-  --color-border: 39 39 42;
-  --color-input: 39 39 42;
-  --color-ring: 129 140 248;
+  --background: var(--black-dark);
+  --foreground: #FFFFFF;
+  --card: var(--black-card);
+  --card-foreground: #FFFFFF;
+  --popover: var(--black-card);
+  --popover-foreground: #FFFFFF;
+  --primary: var(--purple-primary);
+  --primary-foreground: #FFFFFF;
+  --secondary: #374151;
+  --secondary-foreground: #FFFFFF;
+  --muted: #374151;
+  --muted-foreground: #9CA3AF;
+  --accent: var(--purple-light);
+  --accent-foreground: var(--purple-dark);
+  --border: #374151;
+  --input: #374151;
 }
 
 @layer base {
   * {
-    @apply border-0;
+    border: var(--border);
   }
   
   body {
-    background-color: rgb(var(--color-background));
-    color: rgb(var(--color-foreground));
-    font-family: var(--font-family-manrope);
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: 'Cabinet Grotesk', sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.6;
   }
-  
+
   h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-family-cabinet);
+    font-family: 'Cabinet Grotesk', sans-serif;
     font-weight: 700;
-    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+
+  .font-secondary {
+    font-family: 'Manrope', sans-serif;
   }
 }
 
-@layer utilities {
-  .font-cabinet {
-    font-family: var(--font-family-cabinet);
-  }
-  
-  .font-manrope {
-    font-family: var(--font-family-manrope);
-  }
-  
-  .text-balance {
-    text-wrap: balance;
-  }
-  
-  /* Custom colors */
-  .bg-purple-card {
-    background-color: rgb(108 93 211);
-  }
-  
-  .bg-lime {
-    background-color: rgb(212 255 0);
-  }
-  
-  .text-lime {
-    color: rgb(212 255 0);
-  }
-  
-  .bg-black-card {
-    background-color: rgb(24 24 27);
-  }
-  
-  .bg-light-purple {
-    background-color: rgb(237 233 254);
-  }
-  
-  .border-lime {
-    border-color: rgb(212 255 0);
-  }
+/* Vibrant Utility Classes */
+.bg-purple-gradient {
+  background: linear-gradient(135deg, #A855F7 0%, #7C3AED 100%);
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+.bg-purple-card {
+  background: var(--purple-primary);
 }
 
-::-webkit-scrollbar-track {
-  background: rgb(var(--color-background));
+.bg-yellow-card {
+  background: var(--yellow-card);
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(108, 93, 211, 0.4);
-  border-radius: 999px;
+.bg-purple-secondary {
+  background: var(--purple-secondary);
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(108, 93, 211, 0.6);
+.bg-black-card {
+  background: var(--black-card);
 }
 
-/* Selection */
-::selection {
-  background: rgba(212, 255, 0, 0.3);
-  color: rgb(var(--color-foreground));
+.text-purple {
+  color: var(--purple-primary);
 }
 
-/* Remove all black borders */
-button, input, textarea, select {
-  border: none !important;
-  outline: none !important;
+.text-yellow {
+  color: var(--yellow-dark);
 }
 
-button:focus, input:focus, textarea:focus, select:focus {
-  outline: 2px solid rgb(var(--color-primary));
-  outline-offset: 2px;
+.text-purple-secondary {
+  color: var(--purple-secondary);
 }
 
-/* Animations */
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
+.border-purple {
+  border-color: var(--purple-primary);
 }
 
-.animate-float {
-  animation: float 4s ease-in-out infinite;
+.border-yellow {
+  border-color: var(--yellow-primary);
 }
 
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(212, 255, 0, 0.3); }
-  50% { box-shadow: 0 0 40px rgba(212, 255, 0, 0.6); }
+.border-purple-secondary {
+  border-color: var(--purple-secondary);
 }
 
-.animate-pulse-glow {
-  animation: pulse-glow 3s ease-in-out infinite;
+/* Bento Grid Styles */
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.bento-card {
+  border-radius: var(--radius);
+  padding: 2rem;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.bento-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+.bento-card-purple {
+  background: linear-gradient(135deg, #A855F7 0%, #7C3AED 100%);
+  color: white;
+}
+
+.bento-card-yellow {
+  background: var(--yellow-card);
+  color: var(--black-dark);
+}
+
+.bento-card-purple-secondary {
+  background: var(--purple-secondary);
+  color: white;
+}
+
+.bento-card-black {
+  background: var(--black-card);
+  color: white;
+}
+
+.bento-card-white {
+  background: white;
+  color: var(--foreground);
+  border: 1px solid var(--border);
+}
+
+/* Gradient Text */
+.gradient-text {
+  background: linear-gradient(135deg, #A855F7 0%, #7C3AED 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }

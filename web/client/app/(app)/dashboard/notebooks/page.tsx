@@ -26,7 +26,7 @@ export default function NotebooksPage() {
       if (!storedUser) return;
       
       const user = JSON.parse(storedUser);
-      const response: any = await api.get(`/notebooks?userId=${user._id}`);
+      const response: any = await api.get(`/notebooks/user/${user._id}`);
       setNotebooks(response.data || []);
     } catch (error) {
       console.error("Failed to load notebooks:", error);

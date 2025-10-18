@@ -42,13 +42,11 @@ const ReplySchema: Schema = new Schema(
       type: Schema.Types.ObjectId,
       ref: 'Thread',
       required: true,
-      index: true,
     },
     userId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: true,
-      index: true,
     },
     text: {
       type: String,

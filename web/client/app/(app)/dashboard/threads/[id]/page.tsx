@@ -47,7 +47,7 @@ export default function ThreadDetailPage() {
   const loadReplies = async () => {
     setLoading(true);
     try {
-      const response: any = await api.get(`/replies?threadId=${params.id}`);
+      const response: any = await api.get(`/replies/thread/${params.id}`);
       setReplies(response.data || []);
     } catch (error) {
       console.error("Failed to load replies:", error);

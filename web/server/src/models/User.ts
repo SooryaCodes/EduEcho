@@ -26,7 +26,6 @@ const UserSchema: Schema = new Schema(
     email: {
       type: String,
       required: [true, 'Email is required'],
-      unique: true,
       lowercase: true,
       trim: true,
       match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email'],
@@ -72,7 +71,7 @@ const UserSchema: Schema = new Schema(
 );
 
 // Indexes for better query performance
-UserSchema.index({ email: 1 });
+UserSchema.index({ email: 1 }, { unique: true });
 UserSchema.index({ points: -1 });
 UserSchema.index({ type: 1 });
 UserSchema.index({ createdAt: -1 });

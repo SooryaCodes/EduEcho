@@ -69,7 +69,7 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.status(200).json({
     success: true,
     message: 'EduEcho API is running',
@@ -115,29 +115,62 @@ app.use(notFound);
 app.use(errorHandler);
 
 // Start server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 const startServer = async () => {
   try {
-    // Connect to database
-    await connectDatabase();
+    // Verify environment variables
+    console.log('🔍 Checking environment variables...');
+    const requiredEnvVars = ['MONGODB_URI'];
+    const optionalEnvVars = ['OPENAI_API_KEY', 'PINECONE_API_KEY', 'CLOUDINARY_CLOUD_NAME'];
+    
+    const missingRequired = requiredEnvVars.filter(varName => !process.env[varName]);
+    if (missingRequired.length > 0) {
+      throw new Error(`Missing required environment variables: ${missingRequired.join(', ')}`);
+    }
+    
+    const missingOptional = optionalEnvVars.filter(varName => !process.env[varName]);
+    if (missingOptional.length > 0) {
+      console.warn(`⚠️  Missing optional environment variables: ${missingOptional.join(', ')}`);
+      console.warn('   Some features may not work without these variables.\n');
+    }
 
-    // Initialize Pinecone
+    // Connect to database
+    try {
+      await connectDatabase();
+    } catch (error) {
+      console.error('⚠️  Failed to connect to MongoDB. Please check the error above.');
+      console.error('   The server will exit now. Fix the database connection and try again.\n');
+      process.exit(1);
+    }
+
+    // Initialize Pinecone (optional service)
     try {
       await initializePinecone();
     } catch (error) {
       console.warn('⚠️  Pinecone initialization failed. Semantic search will not work.');
+      console.warn('   The server will continue to run with limited functionality.\n');
     }
 
     // Start listening
     httpServer.listen(PORT, () => {
-      console.log(`\n🚀 Server running on port ${PORT}`);
+      console.log(`\n🚀 ===============================================`);
+      console.log(`   Server running successfully on port ${PORT}`);
+      console.log(`   ===============================================`);
       console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`🔗 API: http://localhost:${PORT}/api/v1`);
-      console.log(`💚 Health: http://localhost:${PORT}/health\n`);
+      console.log(`💚 Health: http://localhost:${PORT}/health`);
+      console.log(`🌐 CORS: ${process.env.NODE_ENV === 'production' ? 'Restricted to allowed origins' : 'Allowing all origins (dev mode)'}`);
+      console.log(`\n✅ Services Status:`);
+      console.log(`   - MongoDB: Connected`);
+      console.log(`   - OpenAI: ${process.env.OPENAI_API_KEY ? 'Configured' : 'Not configured'}`);
+      console.log(`   - Pinecone: ${process.env.PINECONE_API_KEY ? 'Configured' : 'Not configured'}`);
+      console.log(`   - Cloudinary: ${process.env.CLOUDINARY_CLOUD_NAME ? 'Configured' : 'Not configured'}`);
+      console.log(`\n💡 Ready to accept requests!\n`);
     });
   } catch (error) {
-    console.error('Failed to start server:', error);
+    console.error('\n❌ Failed to start server:', error);
+    console.error('   Please fix the errors above and try again.\n');
     process.exit(1);
   }
 };
