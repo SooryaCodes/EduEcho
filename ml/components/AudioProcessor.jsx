@@ -6,18 +6,52 @@ import { pipeline } from '@xenova/transformers';
 export default function AudioProcessor() {
   // State management for our component
   const [audioFile, setAudioFile] = useState(null);
+  const [sourceLanguage, setSourceLanguage] = useState('auto'); // Input language (auto-detect by default)
   const [targetLanguage, setTargetLanguage] = useState('hi'); // Default to Hindi
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const [transcribedText, setTranscribedText] = useState('');
   const [translatedText, setTranslatedText] = useState('');
+  const [detectedLanguage, setDetectedLanguage] = useState(''); // Store detected language
   const [error, setError] = useState('');
   const [progress, setProgress] = useState('');
   const [notification, setNotification] = useState(null);
   const fileInputRef = useRef(null);
 
-  // Language options for translation
-  const languageOptions = [
+  // Language options for input audio (transcription source)
+  const sourceLanguageOptions = [
+    { code: 'auto', name: 'Auto-Detect' },
+    { code: 'en', name: 'English' },
+    { code: 'hi', name: 'Hindi' },
+    { code: 'ta', name: 'Tamil' },
+    { code: 'ml', name: 'Malayalam' },
+    { code: 'te', name: 'Telugu' },
+    { code: 'bn', name: 'Bengali' },
+    { code: 'mr', name: 'Marathi' },
+    { code: 'gu', name: 'Gujarati' },
+    { code: 'kn', name: 'Kannada' },
+    { code: 'pa', name: 'Punjabi' },
+    { code: 'ur', name: 'Urdu' },
+    { code: 'es', name: 'Spanish' },
+    { code: 'fr', name: 'French' },
+    { code: 'de', name: 'German' },
+    { code: 'it', name: 'Italian' },
+    { code: 'pt', name: 'Portuguese' },
+    { code: 'ru', name: 'Russian' },
+    { code: 'ja', name: 'Japanese' },
+    { code: 'ko', name: 'Korean' },
+    { code: 'zh', name: 'Chinese' },
+    { code: 'ar', name: 'Arabic' },
+    { code: 'tr', name: 'Turkish' },
+    { code: 'vi', name: 'Vietnamese' },
+    { code: 'th', name: 'Thai' },
+    { code: 'nl', name: 'Dutch' },
+    { code: 'pl', name: 'Polish' },
+    { code: 'id', name: 'Indonesian' }
+  ];
+
+  // Language options for translation (target)
+  const targetLanguageOptions = [
     { code: 'hi', name: 'Hindi' },
     { code: 'ta', name: 'Tamil' },
     { code: 'ml', name: 'Malayalam' },
@@ -27,7 +61,21 @@ export default function AudioProcessor() {
     { code: 'de', name: 'German' },
     { code: 'ja', name: 'Japanese' },
     { code: 'ko', name: 'Korean' },
-    { code: 'zh', name: 'Chinese' }
+    { code: 'zh', name: 'Chinese' },
+    { code: 'te', name: 'Telugu' },
+    { code: 'bn', name: 'Bengali' },
+    { code: 'mr', name: 'Marathi' },
+    { code: 'gu', name: 'Gujarati' },
+    { code: 'kn', name: 'Kannada' },
+    { code: 'pa', name: 'Punjabi' },
+    { code: 'ur', name: 'Urdu' },
+    { code: 'ar', name: 'Arabic' },
+    { code: 'ru', name: 'Russian' },
+    { code: 'pt', name: 'Portuguese' },
+    { code: 'it', name: 'Italian' },
+    { code: 'tr', name: 'Turkish' },
+    { code: 'vi', name: 'Vietnamese' },
+    { code: 'th', name: 'Thai' }
   ];
 
   // Notification system
@@ -65,6 +113,7 @@ export default function AudioProcessor() {
         setError('');
         setTranscribedText('');
         setTranslatedText('');
+        setDetectedLanguage('');
         showNotification(`Audio file selected: ${file.name}`, 'success', 3000);
       } else {
         setError('Please select a valid audio file (MP3, WAV, M4A, etc.)');
@@ -85,6 +134,7 @@ export default function AudioProcessor() {
     setError('');
     setTranscribedText('');
     setTranslatedText('');
+    setDetectedLanguage('');
     setProgress('Initializing...');
     showNotification('Starting transcription...', 'info', 2000);
 
@@ -99,30 +149,85 @@ export default function AudioProcessor() {
         'Xenova/whisper-base'
       );
 
-      // Convert audio file to the format expected by the model
+      // Convert audio file to URL for processing
       setProgress('Processing audio file...');
       showNotification('Processing audio file...', 'info', 2000);
-      const audioData = await audioFile.arrayBuffer();
       
-      // Convert ArrayBuffer to Float32Array for the model
-      const audioContext = new AudioContext();
-      const audioBuffer = await audioContext.decodeAudioData(audioData);
-      const audioArray = new Float32Array(audioBuffer.getChannelData(0));
-
-      // Transcribe the audio (detect language automatically)
-      setProgress('Transcribing audio...');
-      showNotification('Transcribing speech to text...', 'info', 3000);
-      console.log('Transcribing audio...');
+      // Create a temporary URL for the audio file
+      // Transformers.js will handle all audio preprocessing internally
+      const audioUrl = URL.createObjectURL(audioFile);
       
-      const output = await transcriber(audioArray, {
-        task: 'transcribe' // Transcribe in the original language
-      });
-
-      // Display the transcribed text
-      setTranscribedText(output.text);
-      setProgress('Transcription complete!');
-      showNotification(`✅ Transcription successful! Found ${output.text.length} characters`, 'success', 5000);
-      console.log('Transcription complete:', output.text);
+      try {
+        // Transcribe the audio
+        const isAutoDetect = sourceLanguage === 'auto';
+        setProgress(isAutoDetect ? 'Transcribing audio (auto-detecting language)...' : `Transcribing audio (${sourceLanguage.toUpperCase()})...`);
+        showNotification('Transcribing speech to text...', 'info', 3000);
+        console.log('Transcribing audio with language:', sourceLanguage);
+        
+        // Build transcription options
+        const transcriptionOptions = {
+          task: 'transcribe', // Transcribe in the original language
+          chunk_length_s: 30, // Process in 30-second chunks
+          stride_length_s: 5, // Overlap between chunks
+          return_timestamps: true, // Get timestamps
+        };
+        
+        // If user selected a specific language, pass it to Whisper
+        if (!isAutoDetect) {
+          transcriptionOptions.language = sourceLanguage;
+        }
+        
+        const output = await transcriber(audioUrl, transcriptionOptions);
+        
+        // Log the full output to debug structure
+        console.log('Full Whisper output:', output);
+        
+        // Determine the language used for transcription
+        let detected = 'en'; // Default to English
+        
+        if (!isAutoDetect) {
+          // User manually selected the language
+          detected = sourceLanguage;
+          console.log('Using manually selected language:', detected);
+        } else {
+          // Try to auto-detect language from Whisper output
+          // Check multiple possible locations for language information
+          if (output.chunks && output.chunks.length > 0 && output.chunks[0].language) {
+            detected = output.chunks[0].language;
+          } else if (output.language) {
+            detected = output.language;
+          } else if (output.chunks && output.chunks.length > 0) {
+            // Check if language is in chunk metadata
+            const chunk = output.chunks[0];
+            detected = chunk.language || chunk.lang || 'en';
+          }
+          
+          // For now, detect language from the text content as fallback
+          // Check if text uses non-Latin scripts to infer language
+          if (detected === 'en' && output.text) {
+            detected = inferLanguageFromText(output.text);
+          }
+          console.log('Auto-detected language:', detected);
+        }
+        
+        setDetectedLanguage(detected);
+        
+        // Display the transcribed text
+        setTranscribedText(output.text);
+        setProgress('Transcription complete!');
+        
+        const langDisplay = isAutoDetect 
+          ? `Auto-detected: ${detected.toUpperCase()}` 
+          : `Language: ${detected.toUpperCase()} (Manual)`;
+        showNotification(`✅ Transcription successful! ${langDisplay}`, 'success', 5000);
+        console.log('Transcription complete:', output.text);
+        console.log('Final language:', detected);
+        
+      } catch (transcribeErr) {
+        // Clean up URL even on error
+        URL.revokeObjectURL(audioUrl);
+        throw transcribeErr; // Re-throw to outer catch
+      }
 
     } catch (err) {
       console.error('Error during transcription:', err);
@@ -160,19 +265,19 @@ export default function AudioProcessor() {
       );
 
       // Translate the text to target language
-      setProgress(`Translating to ${languageOptions.find(lang => lang.code === targetLanguage)?.name}...`);
-      showNotification(`Translating to ${languageOptions.find(lang => lang.code === targetLanguage)?.name}...`, 'info', 3000);
+      setProgress(`Translating to ${targetLanguageOptions.find(lang => lang.code === targetLanguage)?.name}...`);
+      showNotification(`Translating to ${targetLanguageOptions.find(lang => lang.code === targetLanguage)?.name}...`, 'info', 3000);
       console.log('Translating text...');
       
       const output = await translator(transcribedText, {
-        src_lang: 'eng_Latn', // Source language (English Latin script)
+        src_lang: whisperToNLLB(detectedLanguage), // Use detected language from transcription
         tgt_lang: getLanguageCode(targetLanguage) // Target language
       });
 
       // Display the translated text
       setTranslatedText(output[0].translation_text);
       setProgress('Translation complete!');
-      showNotification(`✅ Translation successful! Translated to ${languageOptions.find(lang => lang.code === targetLanguage)?.name}`, 'success', 5000);
+      showNotification(`✅ Translation successful! Translated to ${targetLanguageOptions.find(lang => lang.code === targetLanguage)?.name}`, 'success', 5000);
       console.log('Translation complete:', output[0].translation_text);
 
     } catch (err) {
@@ -202,11 +307,86 @@ export default function AudioProcessor() {
     return mapping[code] || 'eng_Latn';
   };
 
+  // Helper function to infer language from text content based on script
+  const inferLanguageFromText = (text) => {
+    if (!text || text.trim().length === 0) return 'en';
+    
+    // Check for different scripts/characters
+    const devanagari = /[\u0900-\u097F]/; // Hindi, Marathi, Sanskrit
+    const tamil = /[\u0B80-\u0BFF]/;
+    const malayalam = /[\u0D00-\u0D7F]/;
+    const bengali = /[\u0980-\u09FF]/;
+    const telugu = /[\u0C00-\u0C7F]/;
+    const kannada = /[\u0C80-\u0CFF]/;
+    const gujarati = /[\u0A80-\u0AFF]/;
+    const gurmukhi = /[\u0A00-\u0A7F]/; // Punjabi
+    const arabic = /[\u0600-\u06FF]/;
+    const chinese = /[\u4E00-\u9FFF]/;
+    const japanese = /[\u3040-\u309F\u30A0-\u30FF]/; // Hiragana + Katakana
+    const korean = /[\uAC00-\uD7AF]/;
+    const thai = /[\u0E00-\u0E7F]/;
+    const cyrillic = /[\u0400-\u04FF]/; // Russian, Ukrainian, etc.
+    
+    // Test for each script
+    if (devanagari.test(text)) return 'hi'; // Default to Hindi for Devanagari
+    if (tamil.test(text)) return 'ta';
+    if (malayalam.test(text)) return 'ml';
+    if (bengali.test(text)) return 'bn';
+    if (telugu.test(text)) return 'te';
+    if (kannada.test(text)) return 'kn';
+    if (gujarati.test(text)) return 'gu';
+    if (gurmukhi.test(text)) return 'pa';
+    if (arabic.test(text)) return 'ar';
+    if (chinese.test(text)) return 'zh';
+    if (japanese.test(text)) return 'ja';
+    if (korean.test(text)) return 'ko';
+    if (thai.test(text)) return 'th';
+    if (cyrillic.test(text)) return 'ru';
+    
+    // Default to English for Latin script
+    return 'en';
+  };
+
+  // Helper function to convert Whisper detected language to NLLB format
+  const whisperToNLLB = (whisperLang) => {
+    const mapping = {
+      'en': 'eng_Latn',
+      'hi': 'hin_Deva',
+      'ta': 'tam_Taml',
+      'ml': 'mal_Mlym',
+      'es': 'spa_Latn',
+      'fr': 'fra_Latn',
+      'de': 'deu_Latn',
+      'ja': 'jpn_Jpan',
+      'ko': 'kor_Hang',
+      'zh': 'zho_Hans',
+      'ar': 'arb_Arab',
+      'ru': 'rus_Cyrl',
+      'pt': 'por_Latn',
+      'it': 'ita_Latn',
+      'nl': 'nld_Latn',
+      'pl': 'pol_Latn',
+      'tr': 'tur_Latn',
+      'id': 'ind_Latn',
+      'vi': 'vie_Latn',
+      'th': 'tha_Thai',
+      'bn': 'ben_Beng',
+      'te': 'tel_Telu',
+      'mr': 'mar_Deva',
+      'ur': 'urd_Arab',
+      'pa': 'pan_Guru',
+      'gu': 'guj_Gujr',
+      'kn': 'kan_Knda',
+    };
+    return mapping[whisperLang] || 'eng_Latn'; // Default to English if unknown
+  };
+
   // Reset function
   const handleReset = () => {
     setAudioFile(null);
     setTranscribedText('');
     setTranslatedText('');
+    setDetectedLanguage('');
     setError('');
     setProgress('');
     setNotification(null);
@@ -291,6 +471,29 @@ export default function AudioProcessor() {
           )}
         </div>
 
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Select Input Language
+          </label>
+          <select
+            value={sourceLanguage}
+            onChange={(e) => setSourceLanguage(e.target.value)}
+            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            disabled={isTranscribing}
+          >
+            {sourceLanguageOptions.map((lang) => (
+              <option key={lang.code} value={lang.code}>
+                {lang.name}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-gray-500">
+            {sourceLanguage === 'auto' 
+              ? '🔍 Whisper will automatically detect the language' 
+              : '✓ Transcription will be optimized for the selected language'}
+          </p>
+        </div>
+
         <button
           onClick={handleTranscribe}
           disabled={!audioFile || isTranscribing}
@@ -316,7 +519,16 @@ export default function AudioProcessor() {
         {/* Transcribed Text Display */}
         {transcribedText && (
           <div className="mt-4">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Transcribed Text (Original Language):</h3>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">
+              Transcribed Text 
+              {detectedLanguage && (
+                <span className="ml-2 px-2 py-1 bg-blue-200 text-blue-800 text-xs rounded-full">
+                  {sourceLanguage === 'auto' 
+                    ? `Auto-detected: ${detectedLanguage.toUpperCase()}` 
+                    : `Language: ${detectedLanguage.toUpperCase()}`}
+                </span>
+              )}
+            </h3>
             <div className="p-4 bg-white border border-gray-300 rounded-md">
               <p className="text-gray-800 whitespace-pre-wrap">{transcribedText}</p>
             </div>
@@ -339,7 +551,7 @@ export default function AudioProcessor() {
               className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
               disabled={isTranslating}
             >
-              {languageOptions.map((lang) => (
+              {targetLanguageOptions.map((lang) => (
                 <option key={lang.code} value={lang.code}>
                   {lang.name}
                 </option>
@@ -356,7 +568,7 @@ export default function AudioProcessor() {
                 : 'bg-green-600 text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500'
             }`}
           >
-            {isTranslating ? 'Translating...' : `Translate to ${languageOptions.find(lang => lang.code === targetLanguage)?.name}`}
+            {isTranslating ? 'Translating...' : `Translate to ${targetLanguageOptions.find(lang => lang.code === targetLanguage)?.name}`}
           </button>
 
           {/* Translation Progress */}
@@ -372,7 +584,7 @@ export default function AudioProcessor() {
           {/* Translated Text Display */}
           {translatedText && (
             <div className="mt-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Translated Text ({languageOptions.find(lang => lang.code === targetLanguage)?.name}):</h3>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Translated Text ({targetLanguageOptions.find(lang => lang.code === targetLanguage)?.name}):</h3>
               <div className="p-4 bg-white border border-gray-300 rounded-md">
                 <p className="text-gray-800 whitespace-pre-wrap">{translatedText}</p>
               </div>
