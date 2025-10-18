@@ -1,0 +1,105 @@
+import { Request, Response } from 'express';
+import { asyncHandler } from '../middleware/errorHandler';
+import vectorService from '../services/vectorService';
+import Thread from '../models/Thread';
+import Reply from '../models/Reply';
+import Notebook from '../models/Notebook';
+
+export const semanticSearch = asyncHandler(async (req: Request, res: Response) => {
+  const { q, type, subject, limit = 10 } = req.query;
+
+  if (!q || typeof q !== 'string') {
+    return res.status(400).json({
+      success: false,
+      error: 'Search query is required',
+    });
+  }
+
+  // Build filters
+  const filters: any = {};
+  if (type) {
+    filters.contentType = type;
+  }
+  if (subject) {
+    filters.subject = subject;
+  }
+
+  // Perform semantic search
+  const results = await vectorService.searchSimilar(q, filters, Number(limit));
+
+  // Fetch full content for each result
+  const enrichedResults = await Promise.all(
+    results.map(async (result) => {
+      let content = null;
+
+      switch (result.metadata.contentType) {
+        case 'thread':
+          content = await Thread.findById(result.metadata.contentId).populate('userId', 'name avatar');
+          break;
+        case 'reply':
+          content = await Reply.findById(result.metadata.contentId).populate('userId', 'name avatar');
+          break;
+        case 'notebook':
+          content = await Notebook.findById(result.metadata.contentId).populate('userId', 'name avatar');
+          break;
+      }
+
+      return {
+        score: result.score,
+        type: result.metadata.contentType,
+        content,
+      };
+    })
+  );
+
+  res.status(200).json({
+    success: true,
+    data: enrichedResults.filter((r) => r.content !== null),
+  });
+});
+
+export const searchAll = asyncHandler(async (req: Request, res: Response) => {
+  const { q } = req.query;
+
+  if (!q || typeof q !== 'string') {
+    return res.status(400).json({
+      success: false,
+      error: 'Search query is required',
+    });
+  }
+
+  // Search across all content types
+  const [threads, replies, notebooks] = await Promise.all([
+    Thread.find(
+      { $text: { $search: q } },
+      { score: { $meta: 'textScore' } }
+    )
+      .sort({ score: { $meta: 'textScore' } })
+      .limit(5)
+      .populate('userId', 'name avatar'),
+
+    Reply.find({ text: new RegExp(q, 'i') })
+      .limit(5)
+      .populate('userId', 'name avatar'),
+
+    Notebook.find({
+      $or: [
+        { title: new RegExp(q, 'i') },
+        { description: new RegExp(q, 'i') },
+      ],
+      isPublic: true,
+    })
+      .limit(5)
+      .populate('userId', 'name avatar'),
+  ]);
+
+  res.status(200).json({
+    success: true,
+    data: {
+      threads,
+      replies,
+      notebooks,
+    },
+  });
+});
+
