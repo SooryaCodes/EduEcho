@@ -2,261 +2,239 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useUserStore } from "@/stores/user-store";
 import api from "@/lib/api";
-import { Brain, Zap, Target, Book, Sparkles } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Loader2, Brain, Zap, Target, BookOpen } from "lucide-react";
 
-const subjects = [
-  "Computer Science", "Mathematics", "Physics", "Chemistry", 
-  "Biology", "Engineering", "Business", "Languages", "History", "Other"
+const learnerTypes = [
+  {
+    value: "QuickLearner",
+    title: "Quick Learner",
+    description: "I prefer short, direct answers to get to the point fast",
+    icon: Zap,
+    color: "bg-bg-yellow-card"
+  },
+  {
+    value: "FullMark",
+    title: "Full-Mark Learner",
+    description: "I want deep, detailed explanations with examples",
+    icon: Target,
+    color: "bg-purple-card"
+  },
+  {
+    value: "Average",
+    title: "Balanced Learner",
+    description: "I like a mix of concise and detailed explanations",
+    icon: Brain,
+    color: "bg-light-purple"
+  },
+  {
+    value: "Beginner",
+    title: "Beginner",
+    description: "I need simple, easy-to-understand explanations",
+    icon: BookOpen,
+    color: "bg-light-yellow"
+  }
 ];
 
-const questions = [
-  {
-    id: 1,
-    question: "When learning a new concept, I prefer:",
-    options: [
-      { value: "quick", label: "Quick summaries and key points", type: "QuickLearner" },
-      { value: "detailed", label: "In-depth explanations with examples", type: "FullMark" },
-      { value: "balanced", label: "A mix of both", type: "Average" },
-      { value: "simple", label: "Simple, easy-to-understand basics", type: "Beginner" },
-    ]
-  },
-  {
-    id: 2,
-    question: "How do you approach problem-solving?",
-    options: [
-      { value: "fast", label: "I like to solve problems quickly", type: "QuickLearner" },
-      { value: "thorough", label: "I analyze every detail carefully", type: "FullMark" },
-      { value: "moderate", label: "I balance speed and thoroughness", type: "Average" },
-      { value: "guided", label: "I need step-by-step guidance", type: "Beginner" },
-    ]
-  },
-  {
-    id: 3,
-    question: "Your ideal study material is:",
-    options: [
-      { value: "concise", label: "Bullet points and short notes", type: "QuickLearner" },
-      { value: "comprehensive", label: "Detailed textbooks and papers", type: "FullMark" },
-      { value: "mixed", label: "Mix of summaries and details", type: "Average" },
-      { value: "visual", label: "Videos and simple explanations", type: "Beginner" },
-    ]
-  },
-  {
-    id: 4,
-    question: "When you get stuck on a topic:",
-    options: [
-      { value: "search", label: "I quickly search for solutions", type: "QuickLearner" },
-      { value: "research", label: "I deep dive into research", type: "FullMark" },
-      { value: "ask", label: "I ask for help and explore", type: "Average" },
-      { value: "basics", label: "I go back to basics first", type: "Beginner" },
-    ]
-  },
-  {
-    id: 5,
-    question: "Your learning goal is to:",
-    options: [
-      { value: "efficient", label: "Learn efficiently and move fast", type: "QuickLearner" },
-      { value: "mastery", label: "Achieve complete mastery", type: "FullMark" },
-      { value: "practical", label: "Understand practical applications", type: "Average" },
-      { value: "foundation", label: "Build strong foundations", type: "Beginner" },
-    ]
-  }
+const topics = [
+  "Computer Science", "Mathematics", "Physics", "Chemistry", 
+  "Biology", "Economics", "Literature", "History",
+  "Engineering", "Business", "Psychology", "Languages"
 ];
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<Record<number, string>>({});
-  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+  const user = useUserStore((state) => state.user);
+  const setUser = useUserStore((state) => state.setUser);
   const [loading, setLoading] = useState(false);
-
-  const currentQuestion = questions[step];
-  const progress = ((step + 1) / (questions.length + 1)) * 100;
-
-  const calculateLearnerType = () => {
-    const typeCount: Record<string, number> = {};
-    
-    Object.values(answers).forEach((answer) => {
-      const option = questions
-        .flatMap(q => q.options)
-        .find(opt => opt.value === answer);
-      
-      if (option) {
-        typeCount[option.type] = (typeCount[option.type] || 0) + 1;
-      }
-    });
-
-    return Object.entries(typeCount).reduce((a, b) => (b[1] > a[1] ? b : a))[0];
-  };
+  const [step, setStep] = useState(1);
+  const [formData, setFormData] = useState({
+    type: "",
+    interests: [] as string[],
+  });
 
   const handleNext = () => {
-    if (step < questions.length - 1) {
-      setStep(step + 1);
-    } else {
-      setStep(questions.length);
+    if (step === 1 && !formData.type) {
+      toast.error("Please select a learning type");
+      return;
     }
+    if (step === 2 && formData.interests.length === 0) {
+      toast.error("Please select at least one topic");
+      return;
+    }
+    setStep(step + 1);
   };
 
-  const handleComplete = async () => {
-    if (selectedSubjects.length === 0) {
-      toast.error("Please select at least one subject");
+  const handleFinish = async () => {
+    if (formData.interests.length === 0) {
+      toast.error("Please select at least one topic");
       return;
     }
 
     setLoading(true);
 
     try {
-      const user = JSON.parse(localStorage.getItem("user") || "{}");
-      const learnerType = calculateLearnerType();
+      const storedUser = localStorage.getItem("user");
+      if (!storedUser) {
+        toast.error("User not found. Please sign up again.");
+        router.push("/auth/signup");
+        return;
+      }
 
-      await api.put(`/users/${user._id}`, {
-        type: learnerType,
-        // Store subjects in user metadata
+      const userData = JSON.parse(storedUser);
+      
+      // Update user with learning type and interests
+      const response: any = await api.put(`/users/${userData._id}`, {
+        type: formData.type,
+        interests: formData.interests,
       });
 
-      // Update local storage
-      localStorage.setItem("user", JSON.stringify({
-        ...user,
-        type: learnerType,
-      }));
+      setUser(response.data);
+      localStorage.setItem("user", JSON.stringify(response.data));
 
-      toast.success("Profile setup complete!");
+      toast.success("Profile completed!");
       router.push("/dashboard");
     } catch (error: any) {
-      toast.error(error.message || "Failed to complete setup");
+      toast.error(error.message || "Failed to complete onboarding");
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleSubject = (subject: string) => {
-    setSelectedSubjects(prev =>
-      prev.includes(subject)
-        ? prev.filter(s => s !== subject)
-        : [...prev, subject]
-    );
+  const toggleInterest = (topic: string) => {
+    setFormData(prev => ({
+      ...prev,
+      interests: prev.interests.includes(topic)
+        ? prev.interests.filter(t => t !== topic)
+        : [...prev.interests, topic]
+    }));
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-primary/5 flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold mb-2">Let's personalize your learning</h1>
-          <p className="text-muted-foreground">Answer a few questions to help us understand your learning style</p>
-        </div>
-
-        <Card className="border-2">
-          <CardHeader>
-            <Progress value={progress} className="mb-4" />
-            <CardTitle>
-              {step < questions.length ? `Question ${step + 1} of ${questions.length}` : "Select Your Interests"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <AnimatePresence mode="wait">
-              {step < questions.length ? (
-                <motion.div
-                  key={step}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  className="space-y-6"
-                >
-                  <p className="text-lg font-medium">{currentQuestion.question}</p>
-                  
-                  <RadioGroup
-                    value={answers[currentQuestion.id]}
-                    onValueChange={(value) => setAnswers({ ...answers, [currentQuestion.id]: value })}
-                  >
-                    {currentQuestion.options.map((option) => (
-                      <div key={option.value} className="flex items-center space-x-3 p-4 rounded-lg border-2 hover:border-primary/50 transition-colors cursor-pointer">
-                        <RadioGroupItem value={option.value} id={option.value} />
-                        <Label htmlFor={option.value} className="flex-1 cursor-pointer">
-                          {option.label}
-                        </Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
-
-                  <div className="flex justify-between pt-4">
-                    <Button
-                      variant="outline"
-                      onClick={() => setStep(Math.max(0, step - 1))}
-                      disabled={step === 0}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      onClick={handleNext}
-                      disabled={!answers[currentQuestion.id]}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="space-y-6"
-                >
-                  <p className="text-lg font-medium">What subjects are you interested in?</p>
-                  
-                  <div className="flex flex-wrap gap-2">
-                    {subjects.map((subject) => (
-                      <Badge
-                        key={subject}
-                        variant={selectedSubjects.includes(subject) ? "default" : "outline"}
-                        className="cursor-pointer px-4 py-2 text-sm hover:bg-primary/90 transition-colors"
-                        onClick={() => toggleSubject(subject)}
-                      >
-                        {subject}
-                      </Badge>
-                    ))}
-                  </div>
-
-                  <div className="flex justify-between pt-4">
-                    <Button
-                      variant="outline"
-                      onClick={() => setStep(questions.length - 1)}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      onClick={handleComplete}
-                      disabled={loading || selectedSubjects.length === 0}
-                      className="bg-gradient-to-r from-primary to-primary/80"
-                    >
-                      {loading ? "Completing..." : "Complete Setup"}
-                      <Sparkles className="ml-2 w-4 h-4" />
-                    </Button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </CardContent>
-        </Card>
-
-        <div className="mt-6 flex justify-center gap-2">
-          {[...Array(questions.length + 1)].map((_, i) => (
-            <div
-              key={i}
-              className={`w-2 h-2 rounded-full transition-colors ${
-                i === step ? "bg-primary" : i < step ? "bg-primary/50" : "bg-muted"
-              }`}
+    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+      <div className="w-full max-w-3xl">
+        {/* Progress Bar */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-muted-foreground">Step {step} of 2</span>
+            <span className="text-sm font-medium text-muted-foreground">{Math.round((step / 2) * 100)}%</span>
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-purple-card transition-all duration-300"
+              style={{ width: `${(step / 2) * 100}%` }}
             />
-          ))}
+          </div>
         </div>
+
+        <Card className="border-0 shadow-xl rounded-3xl p-8 md:p-12">
+          {step === 1 && (
+            <div className="space-y-8">
+              <div className="text-center space-y-3">
+                <h1 className="text-4xl font-cabinet font-bold">Welcome to EduEcho!</h1>
+                <p className="text-lg text-muted-foreground">
+                  Let's personalize your learning experience
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <Label className="text-lg font-cabinet font-bold">What's your learning style?</Label>
+                <RadioGroup value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value })}>
+                  <div className="grid gap-4">
+                    {learnerTypes.map((type) => (
+                      <label
+                        key={type.value}
+                        className={`relative flex items-start space-x-4 p-6 rounded-2xl border-2 cursor-pointer transition-all ${
+                          formData.type === type.value
+                            ? "border-[rgb(108,93,211)] bg-light-purple"
+                            : "border-border hover:border-[rgb(108,93,211)]/50"
+                        }`}
+                      >
+                        <RadioGroupItem value={type.value} className="mt-1" />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className={`w-10 h-10 rounded-xl ${type.color} flex items-center justify-center ${type.value === 'FullMark' ? 'text-white' : 'text-foreground'}`}>
+                              <type.icon className="w-5 h-5" />
+                            </div>
+                            <div className="font-cabinet font-bold text-lg">{type.title}</div>
+                          </div>
+                          <p className="text-muted-foreground">{type.description}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </RadioGroup>
+              </div>
+
+              <Button 
+                onClick={handleNext} 
+                className="w-full h-12 bg-purple-card hover:bg-[rgb(129,140,248)] rounded-2xl font-semibold"
+                disabled={!formData.type}
+              >
+                Continue
+              </Button>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-8">
+              <div className="text-center space-y-3">
+                <h1 className="text-4xl font-cabinet font-bold">Choose your interests</h1>
+                <p className="text-lg text-muted-foreground">
+                  Select topics you want to learn about
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {topics.map((topic) => (
+                  <button
+                    key={topic}
+                    onClick={() => toggleInterest(topic)}
+                    className={`p-4 rounded-2xl border-2 font-medium transition-all ${
+                      formData.interests.includes(topic)
+                        ? "border-[rgb(108,93,211)] bg-light-purple text-[rgb(108,93,211)]"
+                        : "border-border hover:border-[rgb(108,93,211)]/50"
+                    }`}
+                  >
+                    {topic}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-3">
+                <Button 
+                  variant="outline"
+                  onClick={() => setStep(1)} 
+                  className="flex-1 h-12 rounded-2xl font-semibold"
+                  disabled={loading}
+                >
+                  Back
+                </Button>
+                <Button 
+                  onClick={handleFinish} 
+                  className="flex-1 h-12 bg-purple-card hover:bg-[rgb(129,140,248)] rounded-2xl font-semibold"
+                  disabled={loading || formData.interests.length === 0}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Setting up...
+                    </>
+                  ) : (
+                    "Complete Setup"
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </Card>
       </div>
     </div>
   );
 }
-

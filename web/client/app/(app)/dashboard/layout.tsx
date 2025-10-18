@@ -1,29 +1,22 @@
 'use client';
 
 import { useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
-import { Sparkles, Home, MessageSquare, BookOpen, Trophy, Search, User, Settings, LogOut, Bell } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { useUserStore } from "@/stores/user-store";
+import { 
+  Home, MessageSquare, BookOpen, Trophy, Search, 
+  User, Settings, Menu, X, Plus 
+} from "lucide-react";
 
-const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: Home },
-  { name: "Threads", href: "/dashboard/threads", icon: MessageSquare },
-  { name: "Notebooks", href: "/dashboard/notebooks", icon: BookOpen },
-  { name: "Leaderboard", href: "/dashboard/leaderboard", icon: Trophy },
-  { name: "Search", href: "/dashboard/search", icon: Search },
+const navItems = [
+  { href: "/dashboard", label: "Home", icon: Home },
+  { href: "/dashboard/threads", label: "Threads", icon: MessageSquare },
+  { href: "/dashboard/notebooks", label: "Notebooks", icon: BookOpen },
+  { href: "/dashboard/leaderboard", label: "Leaderboard", icon: Trophy },
+  { href: "/dashboard/search", label: "Search", icon: Search },
 ];
 
 export default function DashboardLayout({
@@ -31,151 +24,121 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<any>(null);
+  const router = useRouter();
+  const user = useUserStore((state) => state.user);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const userData = localStorage.getItem("user");
-    if (!userData) {
+    // Check if user is logged in
+    const storedUser = localStorage.getItem("user");
+    if (!storedUser) {
       router.push("/auth/login");
-    } else {
-      setUser(JSON.parse(userData));
     }
   }, [router]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    router.push("/");
-  };
-
-  if (!user) return null;
-
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <Link href="/dashboard" className="flex items-center space-x-2">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg">
-              <Sparkles className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="font-bold text-xl hidden sm:inline-block">EduEcho</span>
-          </Link>
-
-          {/* Navigation */}
-          <nav className="hidden md:flex items-center space-x-1">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href;
-              return (
-                <Button
-                  key={item.name}
-                  variant={isActive ? "default" : "ghost"}
-                  asChild
-                  className={cn(
-                    "text-sm font-medium",
-                    isActive && "bg-primary text-primary-foreground"
-                  )}
-                >
-                  <Link href={item.href}>
-                    <Icon className="w-4 h-4 mr-2" />
-                    {item.name}
-                  </Link>
-                </Button>
-              );
-            })}
-          </nav>
-
-          {/* Right side */}
-          <div className="flex items-center space-x-2">
-            <ThemeToggle />
-            
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+      {/* Top Navigation */}
+      <nav className="border-b sticky top-0 z-50 bg-white/80 dark:bg-black/80 backdrop-blur-xl">
+        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+            >
+              {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </Button>
+            
+            <Link href="/dashboard" className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-2xl bg-purple-card flex items-center justify-center">
+                <span className="text-white font-bold text-lg font-cabinet">E</span>
+              </div>
+              <span className="font-cabinet font-bold text-xl hidden sm:block">EduEcho</span>
+            </Link>
+          </div>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                  <Avatar className="h-10 w-10 border-2 border-primary/20">
-                    <AvatarImage src={user?.avatar} alt={user?.name} />
-                    <AvatarFallback className="bg-primary/10">
-                      {user?.name?.substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-64" align="end">
-                <DropdownMenuLabel>
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium">{user?.name}</p>
-                    <p className="text-xs text-muted-foreground">{user?.email}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Badge variant="secondary" className="text-xs">
-                        {user?.type || "Average"}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {user?.points || 0} points
-                      </span>
-                    </div>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/dashboard/profile">
-                    <User className="mr-2 h-4 w-4" />
-                    Profile
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/dashboard/settings">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Settings
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-red-600">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          <div className="flex items-center gap-3">
+            <Button asChild className="bg-purple-card hover:bg-[rgb(129,140,248)] rounded-2xl h-10 px-6 hidden sm:flex">
+              <Link href="/dashboard/threads/new">
+                <Plus className="w-4 h-4 mr-2" />
+                New Thread
+              </Link>
+            </Button>
+            <ThemeToggle />
+            <Button variant="ghost" size="icon" asChild className="rounded-2xl">
+              <Link href="/dashboard/profile">
+                <User className="w-5 h-5" />
+              </Link>
+            </Button>
           </div>
         </div>
-      </header>
+      </nav>
 
-      {/* Mobile Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t bg-background">
-        <div className="grid grid-cols-5 gap-1 p-2">
-          {navigation.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={cn(
-                  "flex flex-col items-center justify-center py-2 px-1 rounded-lg text-xs transition-colors",
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                )}
-              >
-                <Icon className="w-5 h-5 mb-1" />
-                <span>{item.name}</span>
-              </Link>
-            );
-          })}
-        </div>
+      <div className="flex">
+        {/* Sidebar */}
+        <aside
+          className={`fixed lg:sticky top-16 left-0 z-40 h-[calc(100vh-4rem)] w-64 border-r bg-background transition-transform lg:translate-x-0 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <div className="flex flex-col h-full p-6">
+            <nav className="space-y-2 flex-1">
+              {navItems.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setSidebarOpen(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-medium transition-colors ${
+                      isActive
+                        ? "bg-light-purple text-[rgb(108,93,211)]"
+                        : "hover:bg-muted"
+                    }`}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <Link
+              href="/dashboard/settings"
+              className="flex items-center gap-3 px-4 py-3 rounded-2xl font-medium hover:bg-muted transition-colors"
+            >
+              <Settings className="w-5 h-5" />
+              Settings
+            </Link>
+          </div>
+        </aside>
+
+        {/* Mobile Sidebar Overlay */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        {/* Main Content */}
+        <main className="flex-1 p-6 lg:p-8">
+          {children}
+        </main>
       </div>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-6 pb-20 md:pb-6">
-        {children}
-      </main>
+      {/* Floating Action Button (Mobile) */}
+      <Button
+        asChild
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-purple-card hover:bg-[rgb(129,140,248)] shadow-lg lg:hidden"
+      >
+        <Link href="/dashboard/threads/new">
+          <Plus className="w-6 h-6" />
+        </Link>
+      </Button>
     </div>
   );
 }
-
