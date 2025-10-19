@@ -1,5 +1,4 @@
 import { openai, OPENAI_CONFIG } from '../config/openai';
-import { Readable } from 'stream';
 import { IAIScore } from '../models/Reply';
 
 export interface VoiceAnalysis {
@@ -46,22 +45,34 @@ export class AIService {
    * Transcribe audio file using Whisper API with retry logic
    */
   async transcribeAudio(audioBuffer: Buffer, filename: string, language?: string): Promise<string> {
-    const maxRetries = 3;
+    const maxRetries = 2; // Reduce retries to avoid long waits
     let lastError: any;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`🎤 Transcription attempt ${attempt}/${maxRetries}`);
         
-        // Convert buffer to file-like object
-        const file = new File([audioBuffer], filename, { type: 'audio/mpeg' });
+        // Convert buffer to file-like object with proper MIME type detection
+        const mimeType = filename.endsWith('.webm') ? 'audio/webm' : 
+                        filename.endsWith('.wav') ? 'audio/wav' : 
+                        filename.endsWith('.mp3') ? 'audio/mpeg' : 'audio/webm';
+        
+        const file = new File([audioBuffer], filename, { type: mimeType });
 
-        const transcription = await openai.audio.transcriptions.create({
+        // Add timeout wrapper
+        const transcriptionPromise = openai.audio.transcriptions.create({
           file: file,
           model: OPENAI_CONFIG.WHISPER_MODEL,
-          language: language || undefined, // Auto-detect if not specified - supports multilingual
+          language: language || undefined,
           response_format: 'text',
         });
+
+        // Race against timeout
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Transcription timeout')), 30000); // 30s timeout
+        });
+
+        const transcription = await Promise.race([transcriptionPromise, timeoutPromise]) as string;
 
         console.log('✅ Transcription successful');
         return transcription;
@@ -69,29 +80,42 @@ export class AIService {
         lastError = error;
         console.error(`❌ Transcription attempt ${attempt} failed:`, error.message);
         
-        // Check if it's a network error that we can retry
-        if (error.code === 'ECONNRESET' || error.type === 'system' || error.message?.includes('Connection error')) {
-          if (attempt < maxRetries) {
-            const delay = attempt * 2000; // Exponential backoff: 2s, 4s, 6s
-            console.log(`⏳ Retrying in ${delay}ms...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-            continue;
-          }
+        // Check for quota/billing issues
+        if (error.code === 'insufficient_quota' || error.status === 429) {
+          console.error('❌ OpenAI API quota exceeded or rate limited');
+          throw new Error('AI transcription service is temporarily unavailable due to quota limits.');
+        }
+
+        // Only retry on specific network errors (not quota issues)
+        const isRetryableError = 
+          error.code === 'ECONNRESET' || 
+          error.code === 'ETIMEDOUT' ||
+          error.message?.includes('Connection error') ||
+          error.message?.includes('timeout') ||
+          error.message?.includes('network') ||
+          error.status >= 500; // Server errors only
+        
+        if (isRetryableError && attempt < maxRetries) {
+          const delay = Math.min(attempt * 1000, 3000); // Max 3s delay
+          console.log(`⏳ Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
         }
         
-        // If it's not a retryable error or we've exhausted retries, throw
+        // If it's not retryable or we've exhausted retries, break
         break;
       }
     }
 
     console.error('❌ All transcription attempts failed');
-    throw new Error(`Failed to transcribe audio after ${maxRetries} attempts: ${lastError?.message || 'Unknown error'}`);
+    // Return a more user-friendly error message
+    throw new Error(`Transcription service temporarily unavailable. Please try again later.`);
   }
 
   /**
    * Comprehensive voice analysis with 5 dimensions
    */
-  async analyzeVoiceQuality(transcript: string, audioMetadata?: any): Promise<VoiceAnalysis> {
+  async analyzeVoiceQuality(transcript: string): Promise<VoiceAnalysis> {
     try {
       const analysisPrompt = `
 Analyze this voice transcript for educational content quality across 5 dimensions. Provide detailed scores (0-100) and feedback:

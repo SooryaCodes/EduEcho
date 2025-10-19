@@ -21,12 +21,13 @@ export const transcribeAudio = asyncHandler(async (req: Request, res: Response, 
   } catch (error: any) {
     console.error('Transcription failed:', error);
     
-    // Provide a fallback response instead of failing completely
+    // Provide a helpful fallback response
     res.status(200).json({
       success: true,
       data: { 
-        transcript: "Transcription temporarily unavailable. Please try again later or use text input.",
-        fallback: true 
+        transcript: "Voice recorded successfully! Transcription is temporarily unavailable. You can edit this text manually.",
+        fallback: true,
+        error: "transcription_unavailable"
       },
     });
   }
@@ -39,19 +40,40 @@ export const analyzeVoice = asyncHandler(async (req: Request, res: Response, nex
 
   const { language } = req.body;
   
-  // First transcribe the audio
-  const transcript = await aiService.transcribeAudio(req.file.buffer, req.file.originalname, language);
-  
-  // Then analyze voice quality
-  const voiceAnalysis = await aiService.analyzeVoiceQuality(transcript);
+  try {
+    // First transcribe the audio
+    const transcript = await aiService.transcribeAudio(req.file.buffer, req.file.originalname, language);
+    
+    // Then analyze voice quality
+    let voiceAnalysis = null;
+    try {
+      voiceAnalysis = await aiService.analyzeVoiceQuality(transcript);
+    } catch (analysisError) {
+      console.error('Voice analysis failed:', analysisError);
+      // Continue without analysis if it fails
+    }
 
-  res.status(200).json({
-    success: true,
-    data: { 
-      transcript,
-      analysis: voiceAnalysis 
-    },
-  });
+    res.status(200).json({
+      success: true,
+      data: { 
+        transcript,
+        analysis: voiceAnalysis 
+      },
+    });
+  } catch (error: any) {
+    console.error('Voice processing failed:', error);
+    
+    // Provide fallback response
+    res.status(200).json({
+      success: true,
+      data: { 
+        transcript: "Voice recorded successfully! Processing is temporarily unavailable. You can edit this text manually.",
+        analysis: null,
+        fallback: true,
+        error: "processing_unavailable"
+      },
+    });
+  }
 });
 
 export const uploadVoiceReply = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {

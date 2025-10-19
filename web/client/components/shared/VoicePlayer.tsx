@@ -11,7 +11,7 @@ import {
   VolumeX,
   RotateCcw,
   Mic,
-  Waveform
+  AudioWaveform
 } from 'lucide-react';
 
 interface VoicePlayerProps {
@@ -240,7 +240,7 @@ export default function VoicePlayer({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-gray-600 flex items-center">
-              <Waveform className="w-3 h-3 mr-1" />
+              <AudioWaveform className="w-3 h-3 mr-1" />
               Transcript
             </span>
             {transcript.length > 100 && (

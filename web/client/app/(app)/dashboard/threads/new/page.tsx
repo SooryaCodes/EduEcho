@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import WhisperVoiceInput from '@/components/shared/WhisperVoiceInput';
+import ClientVoiceInput from '@/components/shared/ClientVoiceInput';
 import { 
   MessageSquare, 
   Tag, 
@@ -31,8 +31,6 @@ export default function NewThreadPage() {
     category: ''
   });
   const [newTag, setNewTag] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const categories = [
@@ -66,98 +64,14 @@ export default function NewThreadPage() {
     }));
   };
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      const audioChunks: BlobPart[] = [];
-
-      recorder.ondataavailable = (event) => {
-        audioChunks.push(event.data);
-      };
-
-      recorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-        await transcribeAudio(audioBlob);
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      recorder.start();
-      setMediaRecorder(recorder);
-      setIsRecording(true);
-    } catch (error) {
-      console.error('Error starting recording:', error);
-      alert('Could not access microphone. Please check permissions.');
-    }
+  const handleVoiceTranscript = (transcript: string) => {
+    setFormData(prev => ({
+      ...prev,
+      description: prev.description + ' ' + transcript
+    }));
   };
 
-  const stopRecording = () => {
-    if (mediaRecorder && isRecording) {
-      mediaRecorder.stop();
-      setIsRecording(false);
-      setMediaRecorder(null);
-    }
-  };
 
-  const transcribeAudio = async (audioBlob: Blob) => {
-    try {
-      // Use Web Speech API for transcription
-      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        const recognition = new SpeechRecognition();
-        
-        recognition.continuous = true;
-        recognition.interimResults = false;
-        recognition.lang = 'en-US';
-        
-        recognition.onresult = (event: any) => {
-          let transcript = '';
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            transcript += event.results[i][0].transcript;
-          }
-          
-          setFormData(prev => ({
-            ...prev,
-            description: prev.description + ' ' + transcript
-          }));
-        };
-        
-        recognition.onerror = (event: any) => {
-          console.error('Speech recognition error:', event.error);
-        };
-        
-        recognition.start();
-      } else {
-        console.warn('Speech recognition not supported in this browser');
-        alert('Speech recognition not supported. Please type your description manually.');
-      }
-    } catch (error) {
-      console.error('Error with speech recognition:', error);
-    }
-  };
-
-  const showVoiceAnalysis = (analysis: any) => {
-    // Create a simple alert for now - can be enhanced with a modal
-    const summary = `
-🎧 Clarity: ${analysis.clarity.score}/100
-🎤 Confidence: ${analysis.confidence.score}/100  
-🧠 Depth: ${analysis.depth.score}/100
-🗣️ Fluency: ${analysis.fluency.score}/100
-🧩 Emotion: ${analysis.emotion.score}/100
-📊 Overall: ${analysis.overall.score}/100
-
-${analysis.overall.feedback}
-    `;
-    alert(summary);
-  };
-
-  const handleVoiceToggle = () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -260,16 +174,10 @@ ${analysis.overall.feedback}
                       <Label htmlFor="description" className="text-lg font-semibold">Detailed Description</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-            <Button
-              type="button"
-                        variant="outline"
-                        size="sm"
-                        className={`${isRecording ? 'bg-red-100 text-red-700 border-red-200' : ''}`}
-                        onClick={handleVoiceToggle}
-                      >
-                        <Mic className="w-4 h-4 mr-2" />
-                        {isRecording ? 'Stop Recording' : 'Voice Input'}
-                      </Button>
+                      <ClientVoiceInput 
+                        onTranscript={handleVoiceTranscript}
+                        className="flex items-center"
+                      />
                       <Button type="button" variant="outline" size="sm">
                         <Upload className="w-4 h-4 mr-2" />
                         Upload Image
@@ -286,12 +194,6 @@ ${analysis.overall.feedback}
                     className="resize-none"
                   />
                   
-                  {isRecording && (
-                    <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                      <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                      <span className="text-red-700 text-sm font-medium">Recording... Speak your question</span>
-            </div>
-          )}
                 </div>
         </Card>
 

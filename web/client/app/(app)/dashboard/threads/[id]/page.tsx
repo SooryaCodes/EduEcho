@@ -9,7 +9,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
 import api from "@/lib/api";
-import WhisperVoiceInput from "@/components/shared/WhisperVoiceInput";
+import AudioVoiceInput from "@/components/shared/AudioVoiceInput";
+import ClientVoiceInput from "@/components/shared/ClientVoiceInput";
+import VoicePlayer from "@/components/shared/VoicePlayer";
 import { 
   ArrowLeft, Clock, MessageSquare, ThumbsUp, Mic, MicOff,
   Volume2, Brain, Loader2, Star, Trophy
@@ -83,6 +85,7 @@ export default function ThreadDetailPage() {
         return;
       }
 
+      // Submit text reply
       await api.post("/replies", {
         threadId: params.id,
         text: replyText,
@@ -214,10 +217,15 @@ export default function ThreadDetailPage() {
               />
 
               <div className="flex items-center justify-between gap-3">
-                <WhisperVoiceInput 
-                  onTranscript={handleVoiceTranscript}
-                  className="flex items-center"
-                />
+                <div className="flex items-center gap-2">
+                  <ClientVoiceInput 
+                    onTranscript={handleVoiceTranscript}
+                    className="flex items-center"
+                  />
+                  <span className="text-xs text-gray-500">
+                    Click mic for voice input
+                  </span>
+                </div>
 
                 <Button
                   onClick={handleSubmitReply}
@@ -285,8 +293,53 @@ export default function ThreadDetailPage() {
                         )}
                       </div>
 
-                      <p className="text-base leading-relaxed">{reply.text}</p>
+                      {/* Voice Player for Audio Replies */}
+                      {reply.voiceUrl && reply.isVoiceReply ? (
+                        <VoicePlayer
+                          audioUrl={reply.voiceUrl}
+                          transcript={reply.transcript || reply.text}
+                          showTranscript={true}
+                          showAnalysis={!!reply.voiceAnalysis}
+                          voiceAnalysis={reply.voiceAnalysis}
+                          className="mb-4"
+                        />
+                      ) : (
+                        <p className="text-base leading-relaxed">{reply.text}</p>
+                      )}
 
+                      {/* Voice Analysis Summary */}
+                      {reply.voiceAnalysis && (
+                        <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-2xl">
+                          <div className="flex items-start gap-3">
+                            <Brain className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                              <div className="text-sm font-semibold text-purple-600 mb-2">
+                                Voice Analysis
+                              </div>
+                              <div className="flex items-center gap-3 text-xs">
+                                <div className="flex items-center gap-1">
+                                  <span>🎧 Clarity:</span>
+                                  <span className="font-semibold">{reply.voiceAnalysis.clarity?.score || 0}/100</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span>🎤 Confidence:</span>
+                                  <span className="font-semibold">{reply.voiceAnalysis.confidence?.score || 0}/100</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span>🧠 Depth:</span>
+                                  <span className="font-semibold">{reply.voiceAnalysis.depth?.score || 0}/100</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span>📊 Overall:</span>
+                                  <span className="font-semibold text-purple-600">{reply.voiceAnalysis.overall?.score || 0}/100</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* AI Summary */}
                       {reply.aiSummary && (
                         <div className="bg-light-purple p-4 rounded-2xl">
                           <div className="flex items-start gap-3">
@@ -297,20 +350,6 @@ export default function ThreadDetailPage() {
                               </div>
                               <p className="text-sm">{reply.aiSummary}</p>
                             </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {reply.voiceUrl && (
-                        <div className="bg-muted/50 p-4 rounded-2xl">
-                          <div className="flex items-center gap-3">
-                            <Button size="icon" variant="ghost" className="rounded-full">
-                              <Volume2 className="w-5 h-5" />
-                            </Button>
-                            <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                              <div className="h-full bg-[rgb(108,93,211)] w-1/2" />
-                            </div>
-                            <span className="text-xs font-medium">1:23</span>
                           </div>
                         </div>
                       )}

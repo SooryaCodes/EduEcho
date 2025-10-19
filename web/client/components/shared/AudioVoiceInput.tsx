@@ -132,9 +132,9 @@ export default function AudioVoiceInput({
     } catch (error) {
       console.error('❌ Audio processing failed:', error);
       
-      // Fallback: Try browser Web Speech API
+      // Prioritize Web Speech API as primary fallback
       try {
-        console.log('🔄 Trying Web Speech API as fallback...');
+        console.log('🔄 Using Web Speech API for transcription...');
         const fallbackTranscript = await fallbackWebSpeechAPI();
         setCurrentTranscript(fallbackTranscript);
         onTranscript(fallbackTranscript);
@@ -143,8 +143,8 @@ export default function AudioVoiceInput({
           onAudioData(audioBlob, fallbackTranscript);
         }
       } catch (fallbackError) {
-        console.error('❌ Fallback also failed:', fallbackError);
-        const errorMessage = '[Voice recorded successfully! Transcription temporarily unavailable.]';
+        console.error('❌ Web Speech API also failed:', fallbackError);
+        const errorMessage = 'Voice recorded successfully! Please edit the text below or try recording again.';
         setCurrentTranscript(errorMessage);
         onTranscript(errorMessage);
         
@@ -165,7 +165,8 @@ export default function AudioVoiceInput({
 
     console.log('🎤 Sending audio to Whisper API...');
     
-    const response = await fetch('/api/v1/ai/transcribe', {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+    const response = await fetch(`${API_URL}/api/v1/ai/transcribe`, {
       method: 'POST',
       body: formData,
     });
@@ -177,7 +178,11 @@ export default function AudioVoiceInput({
     const result = await response.json();
     
     if (result.success && result.data.transcript) {
-      console.log('✅ Transcription successful:', result.data.transcript);
+      if (result.data.fallback) {
+        console.log('⚠️ Transcription fallback used:', result.data.transcript);
+      } else {
+        console.log('✅ Transcription successful:', result.data.transcript);
+      }
       return result.data.transcript;
     } else {
       throw new Error('No transcript received');
@@ -191,7 +196,8 @@ export default function AudioVoiceInput({
 
     console.log('🧠 Sending audio for analysis...');
     
-    const response = await fetch('/api/v1/ai/analyze-voice', {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+    const response = await fetch(`${API_URL}/api/v1/ai/analyze-voice`, {
       method: 'POST',
       body: formData,
     });
@@ -203,7 +209,11 @@ export default function AudioVoiceInput({
     const result = await response.json();
     
     if (result.success && result.data.transcript) {
-      console.log('✅ Voice analysis successful');
+      if (result.data.fallback) {
+        console.log('⚠️ Voice analysis fallback used:', result.data.transcript);
+      } else {
+        console.log('✅ Voice analysis successful');
+      }
       return {
         transcript: result.data.transcript,
         analysis: result.data.analysis
@@ -216,7 +226,7 @@ export default function AudioVoiceInput({
   const fallbackWebSpeechAPI = async (): Promise<string> => {
     return new Promise((resolve, reject) => {
       if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-        reject(new Error('Web Speech API not supported'));
+        reject(new Error('Web Speech API not supported in this browser'));
         return;
       }
 
@@ -228,20 +238,42 @@ export default function AudioVoiceInput({
       recognition.lang = 'en-US';
       recognition.maxAlternatives = 1;
 
+      // Set timeout for recognition
+      const timeout = setTimeout(() => {
+        recognition.stop();
+        reject(new Error('Speech recognition timeout'));
+      }, 10000); // 10 second timeout
+
       recognition.onresult = (event: any) => {
+        clearTimeout(timeout);
         const transcript = event.results[0][0].transcript;
-        console.log('✅ Web Speech API fallback successful:', transcript);
+        console.log('✅ Web Speech API successful:', transcript);
         resolve(transcript);
       };
 
       recognition.onerror = (event: any) => {
-        console.error('❌ Web Speech API fallback failed:', event.error);
-        reject(new Error(`Web Speech API error: ${event.error}`));
+        clearTimeout(timeout);
+        console.error('❌ Web Speech API failed:', event.error);
+        
+        // Provide more specific error messages
+        if (event.error === 'no-speech') {
+          reject(new Error('No speech detected. Please try speaking again.'));
+        } else if (event.error === 'not-allowed') {
+          reject(new Error('Microphone access denied. Please allow microphone access and try again.'));
+        } else {
+          reject(new Error(`Speech recognition failed: ${event.error}`));
+        }
+      };
+
+      recognition.onend = () => {
+        clearTimeout(timeout);
       };
 
       try {
         recognition.start();
+        console.log('🎤 Starting Web Speech API recognition...');
       } catch (error) {
+        clearTimeout(timeout);
         reject(error);
       }
     });

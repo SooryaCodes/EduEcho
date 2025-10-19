@@ -39,6 +39,8 @@ if (!apiKey || apiKey === 'sk-placeholder') {
 
 export const openai = new OpenAI({
   apiKey: apiKey,
+  timeout: 60000, // 60 seconds timeout
+  maxRetries: 3, // Built-in retry mechanism
 });
 
 export const OPENAI_CONFIG = {

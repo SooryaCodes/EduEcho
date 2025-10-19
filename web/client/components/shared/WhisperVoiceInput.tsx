@@ -90,8 +90,9 @@ export default function WhisperVoiceInput({ onTranscript, className = '' }: Whis
 
       console.log('🎤 Sending audio to Whisper API...');
       
-      // Use relative URL to avoid CORS issues
-      const response = await fetch('/api/v1/ai/transcribe', {
+      // Use full API URL
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+      const response = await fetch(`${API_URL}/api/v1/ai/transcribe`, {
         method: 'POST',
         body: formData,
       });
@@ -104,7 +105,11 @@ export default function WhisperVoiceInput({ onTranscript, className = '' }: Whis
       const result = await response.json();
       
       if (result.success && result.data.transcript) {
-        console.log('✅ Transcription successful:', result.data.transcript);
+        if (result.data.fallback) {
+          console.log('⚠️ Transcription fallback used:', result.data.transcript);
+        } else {
+          console.log('✅ Transcription successful:', result.data.transcript);
+        }
         onTranscript(result.data.transcript);
       } else {
         throw new Error('No transcript received');
@@ -119,7 +124,7 @@ export default function WhisperVoiceInput({ onTranscript, className = '' }: Whis
         await fallbackWebSpeechAPI();
       } catch (fallbackError) {
         console.error('❌ Fallback also failed:', fallbackError);
-        onTranscript('[Voice recorded successfully! Transcription temporarily unavailable.]');
+        onTranscript('Voice recorded successfully! Transcription is temporarily unavailable. You can edit this text manually.');
       }
     } finally {
       setIsTranscribing(false);

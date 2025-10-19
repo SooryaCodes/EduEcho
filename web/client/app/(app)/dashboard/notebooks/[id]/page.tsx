@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import RichTextEditor from '@/components/shared/RichTextEditor';
-import WhisperVoiceInput from '@/components/shared/WhisperVoiceInput';
+import ClientVoiceInput from '@/components/shared/ClientVoiceInput';
 import { 
   ArrowLeft, 
   Save, 
@@ -293,12 +293,12 @@ export default function NotebookDetailPage() {
                   className="min-h-[200px]"
                 />
                 <div className="flex items-center justify-between">
-                  <WhisperVoiceInput 
+                  <ClientVoiceInput 
                     onTranscript={handleVoiceTranscript}
                     className="flex-1"
                   />
                   <span className="text-xs text-gray-500 ml-4">
-                    Click mic for AI-powered voice transcription
+                    Click mic for voice transcription
                   </span>
                 </div>
               </div>
