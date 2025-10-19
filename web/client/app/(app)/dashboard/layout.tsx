@@ -26,7 +26,7 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const user = useUserStore((state) => state.user);
+  const user = useUserStore((state: any) => state.user);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {

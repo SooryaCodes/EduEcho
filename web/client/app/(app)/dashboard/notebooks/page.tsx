@@ -25,19 +25,28 @@ export default function NotebooksPage() {
       const storedUser = localStorage.getItem("user");
       if (!storedUser) {
         console.log("No user found in localStorage");
+        setNotebooks([]);
         return;
       }
       
       const user = JSON.parse(storedUser);
       console.log("User data:", user); // Debug log
+      console.log("User keys:", Object.keys(user)); // Debug available keys
       
-      if (!user._id && !user.id) {
-        console.error("User ID not found in user data");
-        setNotebooks([]);
+      // Try multiple possible ID fields
+      const userId = user._id || user.id || user.userId || user.user_id;
+      
+      if (!userId) {
+        console.error("User ID not found in user data. Available fields:", Object.keys(user));
+        console.error("Full user object:", user);
+        
+        // Clear invalid user data and redirect to login
+        localStorage.removeItem("user");
+        window.location.href = "/auth/login";
         return;
       }
       
-      const userId = user._id || user.id;
+      console.log("Using user ID:", userId);
       const response: any = await api.get(`/notebooks/user/${userId}`);
       setNotebooks(response.data || []);
     } catch (error) {

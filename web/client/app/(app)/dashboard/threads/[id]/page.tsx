@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import WhisperVoiceInput from "@/components/shared/WhisperVoiceInput";
 import { 
   ArrowLeft, Clock, MessageSquare, ThumbsUp, Mic, MicOff,
   Volume2, Brain, Loader2, Star, Trophy
@@ -24,7 +25,6 @@ export default function ThreadDetailPage() {
   const [loading, setLoading] = useState(true);
   const [replyText, setReplyText] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [recording, setRecording] = useState(false);
 
   useEffect(() => {
     if (params.id) {
@@ -74,11 +74,19 @@ export default function ThreadDetailPage() {
       }
 
       const user = JSON.parse(storedUser);
+      const userId = user._id || user.id || user.userId || user.user_id;
+      
+      if (!userId) {
+        toast.error("User ID not found. Please log in again.");
+        localStorage.removeItem("user");
+        router.push("/auth/login");
+        return;
+      }
 
       await api.post("/replies", {
         threadId: params.id,
         text: replyText,
-        userId: user._id,
+        userId: userId,
         userName: user.name,
       });
 
@@ -92,14 +100,10 @@ export default function ThreadDetailPage() {
     }
   };
 
-  const toggleRecording = () => {
-    if (recording) {
-      setRecording(false);
-      toast.success("Recording stopped");
-    } else {
-      setRecording(true);
-      toast.success("Recording started");
-    }
+  // Handle voice transcript
+  const handleVoiceTranscript = (transcript: string) => {
+    setReplyText(prev => prev + ' ' + transcript);
+    toast.success("Voice transcribed!");
   };
 
   if (!thread) {
@@ -200,48 +204,36 @@ export default function ThreadDetailPage() {
               <span className="font-cabinet font-bold text-lg">Your Reply</span>
             </div>
             
-            <Textarea
-              placeholder="Share your knowledge..."
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              className="min-h-32 rounded-2xl border-2 resize-none focus-visible:ring-[rgb(108,93,211)]"
-              disabled={submitting}
-            />
+            <div className="space-y-4">
+              <Textarea
+                placeholder="Share your knowledge..."
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                className="min-h-32 rounded-2xl border-2 resize-none focus-visible:ring-[rgb(108,93,211)]"
+                disabled={submitting}
+              />
 
-            <div className="flex items-center justify-between gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={toggleRecording}
-                className={`rounded-2xl ${recording ? "border-red-600 text-red-600" : ""}`}
-              >
-                {recording ? (
-                  <>
-                    <MicOff className="w-5 h-5 mr-2" />
-                    Stop Recording
-                  </>
-                ) : (
-                  <>
-                    <Mic className="w-5 h-5 mr-2" />
-                    Record Voice
-                  </>
-                )}
-              </Button>
+              <div className="flex items-center justify-between gap-3">
+                <WhisperVoiceInput 
+                  onTranscript={handleVoiceTranscript}
+                  className="flex items-center"
+                />
 
-              <Button
-                onClick={handleSubmitReply}
-                disabled={submitting || (!replyText.trim() && !recording)}
-                className="bg-purple-card hover:bg-[rgb(129,140,248)] rounded-2xl h-11 px-8 font-semibold"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Posting...
-                  </>
-                ) : (
-                  "Post Reply"
-                )}
-              </Button>
+                <Button
+                  onClick={handleSubmitReply}
+                  disabled={submitting || !replyText.trim()}
+                  className="bg-purple-card hover:bg-[rgb(129,140,248)] rounded-2xl h-11 px-8 font-semibold"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Posting...
+                    </>
+                  ) : (
+                    "Post Reply"
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </Card>

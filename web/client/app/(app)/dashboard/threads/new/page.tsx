@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
+import WhisperVoiceInput from '@/components/shared/WhisperVoiceInput';
 import { 
   MessageSquare, 
   Tag, 
@@ -100,24 +101,54 @@ export default function NewThreadPage() {
 
   const transcribeAudio = async (audioBlob: Blob) => {
     try {
-      const formData = new FormData();
-      formData.append('audio', audioBlob, 'recording.wav');
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/ai/transcribe`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setFormData(prev => ({
-          ...prev,
-          description: prev.description + ' ' + data.text
-        }));
+      // Use Web Speech API for transcription
+      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        
+        recognition.continuous = true;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+        
+        recognition.onresult = (event: any) => {
+          let transcript = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+          }
+          
+          setFormData(prev => ({
+            ...prev,
+            description: prev.description + ' ' + transcript
+          }));
+        };
+        
+        recognition.onerror = (event: any) => {
+          console.error('Speech recognition error:', event.error);
+        };
+        
+        recognition.start();
+      } else {
+        console.warn('Speech recognition not supported in this browser');
+        alert('Speech recognition not supported. Please type your description manually.');
       }
     } catch (error) {
-      console.error('Error transcribing audio:', error);
+      console.error('Error with speech recognition:', error);
     }
+  };
+
+  const showVoiceAnalysis = (analysis: any) => {
+    // Create a simple alert for now - can be enhanced with a modal
+    const summary = `
+🎧 Clarity: ${analysis.clarity.score}/100
+🎤 Confidence: ${analysis.confidence.score}/100  
+🧠 Depth: ${analysis.depth.score}/100
+🗣️ Fluency: ${analysis.fluency.score}/100
+🧩 Emotion: ${analysis.emotion.score}/100
+📊 Overall: ${analysis.overall.score}/100
+
+${analysis.overall.feedback}
+    `;
+    alert(summary);
   };
 
   const handleVoiceToggle = () => {
@@ -133,6 +164,23 @@ export default function NewThreadPage() {
     setIsSubmitting(true);
 
     try {
+      const storedUser = localStorage.getItem('user');
+      if (!storedUser) {
+        alert('Please log in again');
+        window.location.href = '/auth/login';
+        return;
+      }
+
+      const user = JSON.parse(storedUser);
+      const userId = user._id || user.id || user.userId || user.user_id;
+      
+      if (!userId) {
+        alert('User ID not found. Please log in again.');
+        localStorage.removeItem('user');
+        window.location.href = '/auth/login';
+        return;
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/threads`, {
         method: 'POST',
         headers: {
@@ -140,10 +188,10 @@ export default function NewThreadPage() {
         },
         body: JSON.stringify({
           question: formData.title,
-          description: formData.description,
-          tags: formData.tags,
+        description: formData.description,
+        tags: formData.tags,
           subject: formData.category,
-          userId: JSON.parse(localStorage.getItem('user') || '{}')._id,
+          userId: userId,
         }),
       });
 
@@ -162,7 +210,7 @@ export default function NewThreadPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header */}
+      {/* Header */}
         <div className="flex items-center space-x-4">
           <Link href="/dashboard/threads">
             <Button variant="ghost" size="sm">
@@ -170,18 +218,18 @@ export default function NewThreadPage() {
               Back to Threads
             </Button>
           </Link>
-          <div>
+        <div>
             <h1 className="text-3xl font-bold text-gray-900">
               Ask a <span className="gradient-text">Question</span>
             </h1>
             <p className="text-gray-600 mt-1">Share your question with the community and get expert answers</p>
           </div>
-        </div>
+      </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Main Form */}
           <div className="lg:col-span-2 space-y-6">
-            <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
               {/* Title */}
               <Card className="p-6">
                 <div className="space-y-4">
@@ -199,8 +247,8 @@ export default function NewThreadPage() {
                   />
                   <p className="text-sm text-gray-500">
                     Make your title descriptive and specific to get better answers
-                  </p>
-                </div>
+              </p>
+            </div>
               </Card>
 
               {/* Description */}
@@ -212,8 +260,8 @@ export default function NewThreadPage() {
                       <Label htmlFor="description" className="text-lg font-semibold">Detailed Description</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Button
-                        type="button"
+            <Button
+              type="button"
                         variant="outline"
                         size="sm"
                         className={`${isRecording ? 'bg-red-100 text-red-700 border-red-200' : ''}`}
@@ -225,9 +273,9 @@ export default function NewThreadPage() {
                       <Button type="button" variant="outline" size="sm">
                         <Upload className="w-4 h-4 mr-2" />
                         Upload Image
-                      </Button>
-                    </div>
-                  </div>
+            </Button>
+          </div>
+              </div>
                   
                   <Textarea
                     id="description"
@@ -242,10 +290,10 @@ export default function NewThreadPage() {
                     <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg">
                       <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
                       <span className="text-red-700 text-sm font-medium">Recording... Speak your question</span>
-                    </div>
-                  )}
+            </div>
+          )}
                 </div>
-              </Card>
+        </Card>
 
               {/* Category */}
               <Card className="p-6">
@@ -253,8 +301,8 @@ export default function NewThreadPage() {
                   <div className="flex items-center space-x-2">
                     <Tag className="w-5 h-5 text-purple-600" />
                     <Label className="text-lg font-semibold">Category</Label>
-                  </div>
-                  
+            </div>
+
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     {categories.map((category) => (
                       <Button
@@ -283,8 +331,8 @@ export default function NewThreadPage() {
                     <Badge variant="outline" className="text-xs">
                       {formData.tags.length}/5
                     </Badge>
-                  </div>
-                  
+            </div>
+
                   {/* Current Tags */}
                   {formData.tags.length > 0 && (
                     <div className="flex flex-wrap gap-2">
@@ -302,27 +350,27 @@ export default function NewThreadPage() {
                           </Button>
                         </Badge>
                       ))}
-                    </div>
+            </div>
                   )}
-                  
+
                   {/* Add New Tag */}
                   <div className="flex space-x-2">
-                    <Input
-                      placeholder="Add a tag..."
+                <Input
+                  placeholder="Add a tag..."
                       value={newTag}
                       onChange={(e) => setNewTag(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
                       disabled={formData.tags.length >= 5}
-                    />
-                    <Button
-                      type="button"
-                      onClick={handleAddTag}
+                />
+                <Button
+                  type="button"
+                  onClick={handleAddTag}
                       disabled={!newTag.trim() || formData.tags.length >= 5}
                       size="sm"
-                    >
+                >
                       <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
+                </Button>
+              </div>
                   
                   {/* Popular Tags */}
                   <div className="space-y-2">
@@ -330,7 +378,7 @@ export default function NewThreadPage() {
                     <div className="flex flex-wrap gap-2">
                       {popularTags.map((tag) => (
                         <Button
-                          key={tag}
+                      key={tag}
                           type="button"
                           variant="outline"
                           size="sm"
@@ -344,31 +392,31 @@ export default function NewThreadPage() {
                             }
                           }}
                           disabled={formData.tags.includes(tag) || formData.tags.length >= 5}
-                        >
-                          {tag}
+                    >
+                      {tag}
                         </Button>
-                      ))}
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              </Card>
+            </div>
+          </div>
+        </Card>
 
-              {/* Submit */}
+        {/* Submit */}
               <div className="flex justify-end space-x-4">
                 <Link href="/dashboard/threads">
                   <Button type="button" variant="outline">
-                    Cancel
-                  </Button>
+            Cancel
+          </Button>
                 </Link>
-                <Button 
-                  type="submit" 
+          <Button
+            type="submit"
                   className="bg-purple-gradient text-white hover:opacity-90"
                   disabled={!formData.title.trim() || !formData.category || isSubmitting}
                 >
                   {isSubmitting ? 'Posting...' : 'Post Question'}
-                </Button>
-              </div>
-            </form>
+          </Button>
+        </div>
+      </form>
           </div>
 
           {/* Sidebar */}

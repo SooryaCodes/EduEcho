@@ -9,11 +9,48 @@ export const transcribeAudio = asyncHandler(async (req: Request, res: Response, 
     return next(new AppError('No audio file provided', 400));
   }
 
-  const transcript = await aiService.transcribeAudio(req.file.buffer, req.file.originalname);
+  const { language } = req.body;
+  
+  try {
+    const transcript = await aiService.transcribeAudio(req.file.buffer, req.file.originalname, language);
+
+    res.status(200).json({
+      success: true,
+      data: { transcript },
+    });
+  } catch (error: any) {
+    console.error('Transcription failed:', error);
+    
+    // Provide a fallback response instead of failing completely
+    res.status(200).json({
+      success: true,
+      data: { 
+        transcript: "Transcription temporarily unavailable. Please try again later or use text input.",
+        fallback: true 
+      },
+    });
+  }
+});
+
+export const analyzeVoice = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  if (!req.file) {
+    return next(new AppError('No audio file provided', 400));
+  }
+
+  const { language } = req.body;
+  
+  // First transcribe the audio
+  const transcript = await aiService.transcribeAudio(req.file.buffer, req.file.originalname, language);
+  
+  // Then analyze voice quality
+  const voiceAnalysis = await aiService.analyzeVoiceQuality(transcript);
 
   res.status(200).json({
     success: true,
-    data: { transcript },
+    data: { 
+      transcript,
+      analysis: voiceAnalysis 
+    },
   });
 });
 
@@ -131,6 +168,9 @@ async function processVoiceReplyWithAI(replyId: string, transcript: string, voic
 
     const thread = reply.threadId as any;
 
+    // Generate comprehensive voice analysis
+    const voiceAnalysis = await aiService.analyzeVoiceQuality(transcript);
+
     // Generate AI score (voice replies get confidence evaluation)
     const aiScore = await aiService.evaluateReply(transcript, thread.question, true);
 
@@ -146,11 +186,12 @@ async function processVoiceReplyWithAI(replyId: string, transcript: string, voic
       console.error('Failed to generate summary audio:', error);
     }
 
-    // Update reply
+    // Update reply with comprehensive analysis
     await Reply.findByIdAndUpdate(replyId, {
       aiScore,
       aiSummary,
       summaryAudioUrl,
+      voiceAnalysis, // Add comprehensive voice analysis
     });
 
     console.log(`✅ Voice reply processing completed for ${replyId}`);

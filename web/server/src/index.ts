@@ -21,8 +21,40 @@ import searchRoutes from './routes/searchRoutes';
 import aiRoutes from './routes/aiRoutes';
 import leaderboardRoutes from './routes/leaderboardRoutes';
 
-// Load environment variables
-dotenv.config();
+// Load environment variables with multiple fallbacks
+const envResult = dotenv.config({ path: './.env' });
+if (envResult.error) {
+  console.error('❌ Error loading .env file:', envResult.error);
+  // Try alternative path
+  dotenv.config({ path: '../.env' });
+}
+
+console.log('🔍 Environment Variables Loaded:');
+console.log('OPENAI_API_KEY exists:', !!process.env.OPENAI_API_KEY);
+console.log('OPENAI_API_KEY length:', process.env.OPENAI_API_KEY?.length || 0);
+console.log('OPENAI_API_KEY first 10 chars:', process.env.OPENAI_API_KEY?.substring(0, 10) || 'undefined');
+console.log('PORT:', process.env.PORT);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+
+// Force reload if still using placeholder
+if (process.env.OPENAI_API_KEY === 'sk-placeholder') {
+  console.warn('⚠️  Still using placeholder API key, trying manual load...');
+  const fs = require('fs');
+  try {
+    const envContent = fs.readFileSync('./.env', 'utf8');
+    const lines = envContent.split('\n');
+    for (const line of lines) {
+      if (line.startsWith('OPENAI_API_KEY=')) {
+        const key = line.split('=')[1];
+        process.env.OPENAI_API_KEY = key;
+        console.log('✅ Manually loaded API key');
+        break;
+      }
+    }
+  } catch (error) {
+    console.error('❌ Failed to manually load .env:', error);
+  }
+}
 
 const app: Application = express();
 const httpServer = createServer(app);

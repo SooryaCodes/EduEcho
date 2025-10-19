@@ -28,9 +28,12 @@ export const createThread = asyncHandler(async (req: Request, res: Response, nex
     console.error('Failed to store thread embedding:', error);
   }
 
+  // Populate user data before returning
+  const populatedThread = await Thread.findById(thread._id).populate('userId', 'name avatar type');
+
   res.status(201).json({
     success: true,
-    data: thread,
+    data: populatedThread,
   });
 });
 

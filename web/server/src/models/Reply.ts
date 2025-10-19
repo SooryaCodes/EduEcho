@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { VoiceAnalysis } from '../services/aiService';
 
 export interface IAIScore {
   clarity: number;
@@ -19,6 +20,7 @@ export interface IReply extends Document {
   language: string;
   aiSummary?: string;
   aiScore?: IAIScore;
+  voiceAnalysis?: VoiceAnalysis;
   summaryAudioUrl?: string;
   upvotes: number;
   downvotes: number;
@@ -34,6 +36,45 @@ const AIScoreSchema = new Schema({
   simplicity: { type: Number, min: 0, max: 10, required: true },
   confidence: { type: Number, min: 0, max: 10, required: true },
   overallScore: { type: Number, min: 0, max: 10, required: true },
+}, { _id: false });
+
+const VoiceAnalysisSchema = new Schema({
+  clarity: {
+    score: { type: Number, min: 0, max: 100 },
+    pronunciation: { type: Number, min: 0, max: 100 },
+    understandability: { type: Number, min: 0, max: 100 },
+    feedback: { type: String }
+  },
+  confidence: {
+    score: { type: Number, min: 0, max: 100 },
+    toneStability: { type: Number, min: 0, max: 100 },
+    energy: { type: Number, min: 0, max: 100 },
+    consistency: { type: Number, min: 0, max: 100 }
+  },
+  depth: {
+    score: { type: Number, min: 0, max: 100 },
+    conceptualCoverage: { type: Number, min: 0, max: 100 },
+    semanticRichness: { type: Number, min: 0, max: 100 },
+    feedback: { type: String }
+  },
+  fluency: {
+    score: { type: Number, min: 0, max: 100 },
+    smoothness: { type: Number, min: 0, max: 100 },
+    fillerWordRatio: { type: Number, min: 0, max: 100 },
+    wordPacing: { type: Number, min: 0, max: 100 }
+  },
+  emotion: {
+    score: { type: Number, min: 0, max: 100 },
+    expressiveness: { type: Number, min: 0, max: 100 },
+    engagement: { type: Number, min: 0, max: 100 },
+    sentiment: { type: String }
+  },
+  overall: {
+    score: { type: Number, min: 0, max: 100 },
+    feedback: { type: String },
+    strengths: [{ type: String }],
+    improvements: [{ type: String }]
+  }
 }, { _id: false });
 
 const ReplySchema: Schema = new Schema(
@@ -78,6 +119,10 @@ const ReplySchema: Schema = new Schema(
     },
     aiScore: {
       type: AIScoreSchema,
+      default: null,
+    },
+    voiceAnalysis: {
+      type: VoiceAnalysisSchema,
       default: null,
     },
     summaryAudioUrl: {

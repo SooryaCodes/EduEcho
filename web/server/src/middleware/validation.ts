@@ -58,9 +58,10 @@ export const notebookSchema = Joi.object({
 });
 
 export const noteSchema = Joi.object({
+  title: Joi.string().min(1).max(200).required(),
   content: Joi.string().max(5000).required(),
   summary: Joi.string().max(500).optional(),
-  sourceType: Joi.string().valid('reply', 'manual').required(),
+  sourceType: Joi.string().valid('reply', 'manual').optional().default('manual'),
   sourceId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional(),
 });
 

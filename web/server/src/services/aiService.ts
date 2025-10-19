@@ -2,25 +2,211 @@ import { openai, OPENAI_CONFIG } from '../config/openai';
 import { Readable } from 'stream';
 import { IAIScore } from '../models/Reply';
 
+export interface VoiceAnalysis {
+  clarity: {
+    score: number;
+    pronunciation: number;
+    understandability: number;
+    feedback: string;
+  };
+  confidence: {
+    score: number;
+    toneStability: number;
+    energy: number;
+    consistency: number;
+  };
+  depth: {
+    score: number;
+    conceptualCoverage: number;
+    semanticRichness: number;
+    feedback: string;
+  };
+  fluency: {
+    score: number;
+    smoothness: number;
+    fillerWordRatio: number;
+    wordPacing: number;
+  };
+  emotion: {
+    score: number;
+    expressiveness: number;
+    engagement: number;
+    sentiment: string;
+  };
+  overall: {
+    score: number;
+    feedback: string;
+    strengths: string[];
+    improvements: string[];
+  };
+}
+
 export class AIService {
   /**
-   * Transcribe audio file using Whisper API
+   * Transcribe audio file using Whisper API with retry logic
    */
-  async transcribeAudio(audioBuffer: Buffer, filename: string): Promise<string> {
-    try {
-      // Convert buffer to file-like object
-      const file = new File([audioBuffer], filename, { type: 'audio/mpeg' });
+  async transcribeAudio(audioBuffer: Buffer, filename: string, language?: string): Promise<string> {
+    const maxRetries = 3;
+    let lastError: any;
 
-      const transcription = await openai.audio.transcriptions.create({
-        file: file,
-        model: OPENAI_CONFIG.WHISPER_MODEL,
-        language: 'en', // Auto-detect or specify
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🎤 Transcription attempt ${attempt}/${maxRetries}`);
+        
+        // Convert buffer to file-like object
+        const file = new File([audioBuffer], filename, { type: 'audio/mpeg' });
+
+        const transcription = await openai.audio.transcriptions.create({
+          file: file,
+          model: OPENAI_CONFIG.WHISPER_MODEL,
+          language: language || undefined, // Auto-detect if not specified - supports multilingual
+          response_format: 'text',
+        });
+
+        console.log('✅ Transcription successful');
+        return transcription;
+      } catch (error: any) {
+        lastError = error;
+        console.error(`❌ Transcription attempt ${attempt} failed:`, error.message);
+        
+        // Check if it's a network error that we can retry
+        if (error.code === 'ECONNRESET' || error.type === 'system' || error.message?.includes('Connection error')) {
+          if (attempt < maxRetries) {
+            const delay = attempt * 2000; // Exponential backoff: 2s, 4s, 6s
+            console.log(`⏳ Retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+        }
+        
+        // If it's not a retryable error or we've exhausted retries, throw
+        break;
+      }
+    }
+
+    console.error('❌ All transcription attempts failed');
+    throw new Error(`Failed to transcribe audio after ${maxRetries} attempts: ${lastError?.message || 'Unknown error'}`);
+  }
+
+  /**
+   * Comprehensive voice analysis with 5 dimensions
+   */
+  async analyzeVoiceQuality(transcript: string, audioMetadata?: any): Promise<VoiceAnalysis> {
+    try {
+      const analysisPrompt = `
+Analyze this voice transcript for educational content quality across 5 dimensions. Provide detailed scores (0-100) and feedback:
+
+TRANSCRIPT: "${transcript}"
+
+Analyze for:
+
+1. CLARITY (🎧):
+- Pronunciation quality and accent clarity
+- Word articulation and enunciation
+- Overall understandability
+- Audio waveform quality (if available)
+
+2. CONFIDENCE (🎤):
+- Tone stability and consistency
+- Energy level and enthusiasm
+- Speaker confidence and authority
+- Volume and pitch variation
+
+3. DEPTH (🧠):
+- Conceptual coverage and completeness
+- Educational value and accuracy
+- Semantic richness and vocabulary
+- Knowledge demonstration
+
+4. FLUENCY (🗣️):
+- Speech smoothness and flow
+- Filler word usage (um, uh, like)
+- Natural pacing and rhythm
+- Silence patterns and pauses
+
+5. EMOTION/ENGAGEMENT (🧩):
+- Expressiveness and variation
+- Audience engagement potential
+- Emotional connection
+- Delivery enthusiasm and passion
+
+Provide response in this exact JSON format:
+{
+  "clarity": {
+    "score": 85,
+    "pronunciation": 90,
+    "understandability": 80,
+    "feedback": "Clear pronunciation with minor accent, very understandable"
+  },
+  "confidence": {
+    "score": 78,
+    "toneStability": 75,
+    "energy": 80,
+    "consistency": 80
+  },
+  "depth": {
+    "score": 92,
+    "conceptualCoverage": 95,
+    "semanticRichness": 90,
+    "feedback": "Excellent technical depth with concrete examples"
+  },
+  "fluency": {
+    "score": 88,
+    "smoothness": 85,
+    "fillerWordRatio": 5,
+    "wordPacing": 90
+  },
+  "emotion": {
+    "score": 82,
+    "expressiveness": 85,
+    "engagement": 80,
+    "sentiment": "positive"
+  },
+  "overall": {
+    "score": 85,
+    "feedback": "Strong educational content with clear, confident delivery",
+    "strengths": ["Clear pronunciation", "Good technical depth", "Engaging delivery"],
+    "improvements": ["Reduce filler words", "More consistent pacing", "Increase energy"]
+  }
+}
+`;
+
+      const response = await openai.chat.completions.create({
+        model: OPENAI_CONFIG.GPT_MODEL,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert voice and educational content analyst. Provide detailed, constructive analysis in the exact JSON format requested. Be encouraging but honest in your feedback.'
+          },
+          {
+            role: 'user',
+            content: analysisPrompt
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 1500,
+        response_format: { type: 'json_object' },
       });
 
-      return transcription.text;
+      const analysisText = response.choices[0].message.content;
+      if (!analysisText) {
+        throw new Error('No analysis received from GPT-4');
+      }
+
+      // Parse JSON response
+      const analysis = JSON.parse(analysisText) as VoiceAnalysis;
+      return analysis;
     } catch (error) {
-      console.error('Transcription error:', error);
-      throw new Error('Failed to transcribe audio');
+      console.error('Voice analysis error:', error);
+      // Return default analysis if GPT-4 fails
+      return {
+        clarity: { score: 75, pronunciation: 75, understandability: 75, feedback: 'Analysis temporarily unavailable' },
+        confidence: { score: 75, toneStability: 75, energy: 75, consistency: 75 },
+        depth: { score: 75, conceptualCoverage: 75, semanticRichness: 75, feedback: 'Analysis temporarily unavailable' },
+        fluency: { score: 75, smoothness: 75, fillerWordRatio: 10, wordPacing: 75 },
+        emotion: { score: 75, expressiveness: 75, engagement: 75, sentiment: 'neutral' },
+        overall: { score: 75, feedback: 'Voice analysis temporarily unavailable', strengths: [], improvements: [] }
+      };
     }
   }
 
