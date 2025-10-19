@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { pipeline } from '@xenova/transformers';
 
 export default function AudioProcessor() {
@@ -16,6 +16,7 @@ export default function AudioProcessor() {
   const [error, setError] = useState('');
   const [progress, setProgress] = useState('');
   const [notification, setNotification] = useState(null);
+  const notificationTimeoutRef = useRef(null);
   const fileInputRef = useRef(null);
 
   // Language options for input audio (transcription source)
@@ -78,11 +79,34 @@ export default function AudioProcessor() {
     { code: 'th', name: 'Thai' }
   ];
 
-  // Notification system
+  // Memoized target language name to prevent repeated lookups
+  const targetLanguageName = useMemo(() => {
+    return targetLanguageOptions.find(lang => lang.code === targetLanguage)?.name || 'Unknown';
+  }, [targetLanguage]);
+
+  // Cleanup effect for component unmount
+  useEffect(() => {
+    return () => {
+      // Clear notification timeout on unmount
+      if (notificationTimeoutRef.current) {
+        clearTimeout(notificationTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Notification system - Fixed to prevent memory leaks
   const showNotification = (message, type = 'info', duration = 4000) => {
+    // Clear any existing timeout
+    if (notificationTimeoutRef.current) {
+      clearTimeout(notificationTimeoutRef.current);
+    }
+    
     setNotification({ message, type, duration });
-    setTimeout(() => {
+    
+    // Store timeout reference for cleanup
+    notificationTimeoutRef.current = setTimeout(() => {
       setNotification(null);
+      notificationTimeoutRef.current = null;
     }, duration);
   };
 
@@ -103,22 +127,39 @@ export default function AudioProcessor() {
     }
   };
 
-  // Handle file selection
+  // Handle file selection - Enhanced with comprehensive validation
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (file) {
       // Validate file type
-      if (file.type.startsWith('audio/')) {
-        setAudioFile(file);
-        setError('');
-        setTranscribedText('');
-        setTranslatedText('');
-        setDetectedLanguage('');
-        showNotification(`Audio file selected: ${file.name}`, 'success', 3000);
-      } else {
+      if (!file.type.startsWith('audio/')) {
         setError('Please select a valid audio file (MP3, WAV, M4A, etc.)');
         showNotification('Invalid file type. Please select an audio file.', 'error', 4000);
+        return;
       }
+      
+      // Validate file size (max 100MB)
+      const maxSize = 100 * 1024 * 1024; // 100MB in bytes
+      if (file.size > maxSize) {
+        setError('File too large. Please select a file under 100MB.');
+        showNotification('File too large. Maximum size is 100MB.', 'error', 4000);
+        return;
+      }
+      
+      // Validate minimum file size (1KB)
+      if (file.size < 1024) {
+        setError('File too small. Please select a valid audio file.');
+        showNotification('File too small. Please select a valid audio file.', 'error', 4000);
+        return;
+      }
+      
+      // File is valid
+      setAudioFile(file);
+      setError('');
+      setTranscribedText('');
+      setTranslatedText('');
+      setDetectedLanguage('');
+      showNotification(`Audio file selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`, 'success', 3000);
     }
   };
 
@@ -224,9 +265,10 @@ export default function AudioProcessor() {
         console.log('Final language:', detected);
         
       } catch (transcribeErr) {
-        // Clean up URL even on error
-        URL.revokeObjectURL(audioUrl);
         throw transcribeErr; // Re-throw to outer catch
+      } finally {
+        // Always clean up the URL to prevent memory leaks
+        URL.revokeObjectURL(audioUrl);
       }
 
     } catch (err) {
@@ -265,8 +307,8 @@ export default function AudioProcessor() {
       );
 
       // Translate the text to target language
-      setProgress(`Translating to ${targetLanguageOptions.find(lang => lang.code === targetLanguage)?.name}...`);
-      showNotification(`Translating to ${targetLanguageOptions.find(lang => lang.code === targetLanguage)?.name}...`, 'info', 3000);
+      setProgress(`Translating to ${targetLanguageName}...`);
+      showNotification(`Translating to ${targetLanguageName}...`, 'info', 3000);
       console.log('Translating text...');
       
       const output = await translator(transcribedText, {
@@ -277,7 +319,7 @@ export default function AudioProcessor() {
       // Display the translated text
       setTranslatedText(output[0].translation_text);
       setProgress('Translation complete!');
-      showNotification(`✅ Translation successful! Translated to ${targetLanguageOptions.find(lang => lang.code === targetLanguage)?.name}`, 'success', 5000);
+      showNotification(`✅ Translation successful! Translated to ${targetLanguageName}`, 'success', 5000);
       console.log('Translation complete:', output[0].translation_text);
 
     } catch (err) {
@@ -290,7 +332,7 @@ export default function AudioProcessor() {
     }
   };
 
-  // Helper function to convert language code to NLLB format
+  // Helper function to convert language code to NLLB format (target language)
   const getLanguageCode = (code) => {
     const mapping = {
       'hi': 'hin_Deva',
@@ -302,7 +344,21 @@ export default function AudioProcessor() {
       'de': 'deu_Latn',
       'ja': 'jpn_Jpan',
       'ko': 'kor_Hang',
-      'zh': 'zho_Hans'
+      'zh': 'zho_Hans',
+      'te': 'tel_Telu',
+      'bn': 'ben_Beng',
+      'mr': 'mar_Deva',
+      'gu': 'guj_Gujr',
+      'kn': 'kan_Knda',
+      'pa': 'pan_Guru',
+      'ur': 'urd_Arab',
+      'ar': 'arb_Arab',
+      'ru': 'rus_Cyrl',
+      'pt': 'por_Latn',
+      'it': 'ita_Latn',
+      'tr': 'tur_Latn',
+      'vi': 'vie_Latn',
+      'th': 'tha_Thai'
     };
     return mapping[code] || 'eng_Latn';
   };
@@ -568,7 +624,7 @@ export default function AudioProcessor() {
                 : 'bg-green-600 text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500'
             }`}
           >
-            {isTranslating ? 'Translating...' : `Translate to ${targetLanguageOptions.find(lang => lang.code === targetLanguage)?.name}`}
+            {isTranslating ? 'Translating...' : `Translate to ${targetLanguageName}`}
           </button>
 
           {/* Translation Progress */}
@@ -584,7 +640,7 @@ export default function AudioProcessor() {
           {/* Translated Text Display */}
           {translatedText && (
             <div className="mt-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Translated Text ({targetLanguageOptions.find(lang => lang.code === targetLanguage)?.name}):</h3>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Translated Text ({targetLanguageName}):</h3>
               <div className="p-4 bg-white border border-gray-300 rounded-md">
                 <p className="text-gray-800 whitespace-pre-wrap">{translatedText}</p>
               </div>
